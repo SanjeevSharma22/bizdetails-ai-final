@@ -8,6 +8,9 @@
     "test": "echo \"No tests\""
   },
   "dependencies": {
+    "lucide-react": "^0.371.0",
+
+ main
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
