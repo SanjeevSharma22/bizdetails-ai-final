@@ -54,7 +54,12 @@ def generate_mock_domain(company_name: str) -> str:
     return f"{clean}{random.choice(domains)}"
 
 
+def generate_mock_results(
+    data: List[Dict[str, Optional[str]]],
+) -> List[ProcessedResult]:
+=======
 def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[ProcessedResult]:
+ main
     results = []
     for idx, row in enumerate(data, start=1):
         name = row.get("Company Name") or f"Company {idx}"
@@ -73,9 +78,11 @@ def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[Processe
         )
     return results
 
-    mapping: dict
- main
 
+    mapping: dict
+ 
+
+ main
 
 @app.post("/api/auth/signup")
 async def signup(credentials: UserCredentials):
@@ -100,8 +107,9 @@ async def upload(file: UploadFile = File(...)):
 
     """Accept a CSV file and return placeholder headers."""
     return {"headers": ["Company Name", "Country", "Industry"]}
- main
+ 
 
+ main
 
 @app.post("/api/process")
 async def process(req: ProcessRequest):
@@ -124,8 +132,9 @@ async def get_results(task_id: str):
 async def get_results():
     """Return enriched results. Placeholder implementation."""
     return {"results": []}
- main
+ 
 
+ main
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
@@ -133,10 +142,10 @@ async def task_status(task_id: str):
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
 
+
     """Return task status. Placeholder implementation."""
     return {"task_id": task_id, "status": "pending"}
  main
-
 
 @app.get("/api/dashboard")
 async def dashboard():

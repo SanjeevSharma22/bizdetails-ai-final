@@ -1,3 +1,29 @@
+import React, { useState } from "react";
+import {
+  Upload,
+  Database,
+  MessageCircle,
+  BarChart3,
+  FileText,
+  Settings,
+  User,
+  LogOut,
+} from "lucide-react";
+import { Button } from "./components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
+import { Badge } from "./components/ui/badge";
+import { UploadScreen } from "./components/UploadScreen";
+import { ColumnMappingScreen } from "./components/ColumnMappingScreen";
+import { ResultsView } from "./components/ResultsView";
+import { Dashboard } from "./components/Dashboard";
+import { ChatPanel } from "./components/ChatPanel";
+import { ComplianceBanner } from "./components/ComplianceBanner";
+import { LandingPage } from "./components/LandingPage";
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("upload");
+  const [uploadStep, setUploadStep] = useState("upload");
 import React, { useState } from 'react';
 import { Upload, Database, MessageCircle, BarChart3, FileText, Settings, User, LogOut } from 'lucide-react';
 import { Button } from './components/ui/button';
@@ -15,6 +41,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadStep, setUploadStep] = useState('upload');
+ main
   const [showChat, setShowChat] = useState(false);
   const [showCompliance, setShowCompliance] = useState(true);
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -26,14 +53,26 @@ export default function App() {
 
   const handleSignOut = () => {
     setUser(null);
+    setActiveTab("upload");
+    setUploadStep("upload");
     setActiveTab('upload');
     setUploadStep('upload');
+ main
     setUploadedFile(null);
     setProcessedResults(null);
   };
 
   const handleFileUploaded = (fileData) => {
     setUploadedFile(fileData);
+    setUploadStep("mapping");
+  };
+
+  const handleColumnMappingComplete = (mappedData) => {
+    setUploadStep("processing");
+    setTimeout(() => {
+      setProcessedResults(generateMockResults(mappedData));
+      setActiveTab("results");
+      setUploadStep("upload");
     setUploadStep('mapping');
   };
 
@@ -43,17 +82,30 @@ export default function App() {
       setProcessedResults(generateMockResults(mappedData));
       setActiveTab('results');
       setUploadStep('upload');
+ main
     }, 2000);
   };
 
   const handleBackToUpload = () => {
+    setUploadStep("upload");
     setUploadStep('upload');
+ main
     setUploadedFile(null);
   };
 
   const generateMockResults = (data) => {
     return data.map((row, index) => ({
       id: index + 1,
+      companyName: row["Company Name"] || `Company ${index + 1}`,
+      originalData: row,
+      domain: generateMockDomain(row["Company Name"] || `Company ${index + 1}`),
+      confidence: ["High", "Medium", "Low"][Math.floor(Math.random() * 3)],
+      matchType: ["Exact", "Contextual", "Reverse", "Manual"][
+        Math.floor(Math.random() * 4)
+      ],
+      notes: Math.random() > 0.7 ? "Fuzzy match applied" : null,
+      country: row.Country || "US",
+      industry: row.Industry || "Technology",
       companyName: row['Company Name'] || `Company ${index + 1}`,
       originalData: row,
       domain: generateMockDomain(row['Company Name'] || `Company ${index + 1}`),
@@ -62,20 +114,28 @@ export default function App() {
       notes: Math.random() > 0.7 ? 'Fuzzy match applied' : null,
       country: row.Country || 'US',
       industry: row.Industry || 'Technology'
+ main
     }));
   };
 
   const generateMockDomain = (companyName) => {
+    const cleanName = companyName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const domains = [".com", ".io", ".co", ".net"];
     const cleanName = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const domains = ['.com', '.io', '.co', '.net'];
+\ main
     return `${cleanName}${domains[Math.floor(Math.random() * domains.length)]}`;
   };
 
   const getUploadTabContent = () => {
     switch (uploadStep) {
+      case "upload":
+        return <UploadScreen onFileUploaded={handleFileUploaded} />;
+      case "mapping":
       case 'upload':
         return <UploadScreen onFileUploaded={handleFileUploaded} />;
       case 'mapping':
+ main
         return (
           <ColumnMappingScreen
             uploadedFile={uploadedFile}
@@ -83,7 +143,9 @@ export default function App() {
             onBack={handleBackToUpload}
           />
         );
+      case "processing":
       case 'processing':
+ main
         return (
           <div className="flex items-center justify-center py-24">
             <div className="text-center space-y-4">
@@ -92,7 +154,11 @@ export default function App() {
               </div>
               <div>
                 <h3 className="text-xl mb-2">Processing Your Data</h3>
+                <p className="text-gray-500">
+                  Mapping companies to domains using AI...
+                </p>
                 <p className="text-gray-500">Mapping companies to domains using AI...</p>
+ main
               </div>
             </div>
           </div>
@@ -120,7 +186,12 @@ export default function App() {
                 <Database className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl text-gray-900">BizDetails AI</h1>
+              <Badge
+                variant="secondary"
+                className="bg-purple-100 text-purple-700"
+              >
               <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+ main
                 AI-Powered
               </Badge>
             </div>
@@ -153,15 +224,42 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex gap-6">
+          <div
+            className={`flex-1 transition-all duration-300 ${showChat ? "mr-80" : ""}`}
+          >
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-3 mb-8">
+                <TabsTrigger value="upload" className="flex items-center gap-2">
+                  {uploadStep === "mapping" ? (
+
           <div className={`flex-1 transition-all duration-300 ${showChat ? 'mr-80' : ''}`}>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-8">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
                   {uploadStep === 'mapping' ? (
+ main
                     <Settings className="w-4 h-4" />
                   ) : (
                     <Upload className="w-4 h-4" />
                   )}
+                  {uploadStep === "mapping" ? "Column Mapping" : "Upload & Map"}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="results"
+                  className="flex items-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Results
+                </TabsTrigger>
+                <TabsTrigger
+                  value="dashboard"
+                  className="flex items-center gap-2"
+                >
+
                   {uploadStep === 'mapping' ? 'Column Mapping' : 'Upload & Map'}
                 </TabsTrigger>
                 <TabsTrigger value="results" className="flex items-center gap-2">
@@ -169,6 +267,7 @@ export default function App() {
                   Results
                 </TabsTrigger>
                 <TabsTrigger value="dashboard" className="flex items-center gap-2">
+ main
                   <BarChart3 className="w-4 h-4" />
                   Dashboard
                 </TabsTrigger>
@@ -195,6 +294,7 @@ export default function App() {
           )}
         </div>
       </div>
+
 
 import React from 'react';
 

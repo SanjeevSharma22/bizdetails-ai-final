@@ -1,8 +1,14 @@
+import React, { useState } from "react";
+import { Button } from "./ui/button";
+
+export function ChatPanel({ onClose }) {
+  const [message, setMessage] = useState("");
 import React, { useState } from 'react';
 import { Button } from './ui/button';
 
 export function ChatPanel({ onClose }) {
   const [message, setMessage] = useState('');
+ main
   return (
     <div className="bg-white border rounded h-full flex flex-col">
       <div className="flex justify-between items-center p-2 border-b">
@@ -10,7 +16,11 @@ export function ChatPanel({ onClose }) {
         <Button onClick={onClose}>Close</Button>
       </div>
       <div className="flex-1 p-2 overflow-auto">
+        <p className="text-sm text-gray-500">
+          Chat functionality not implemented.
+        </p>
         <p className="text-sm text-gray-500">Chat functionality not implemented.</p>
+ main
       </div>
       <div className="p-2 border-t flex gap-2">
         <input
@@ -19,7 +29,10 @@ export function ChatPanel({ onClose }) {
           className="flex-1 border px-2 py-1 rounded"
           placeholder="Ask a question..."
         />
+        <Button onClick={() => setMessage("")}>Send</Button>
+
         <Button onClick={() => setMessage('')}>Send</Button>
+ main
       </div>
     </div>
   );

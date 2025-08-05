@@ -1,5 +1,9 @@
+import React from "react";
+import { Button } from "./ui/button";
+
 import React from 'react';
 import { Button } from './ui/button';
+ main
 
 export function ComplianceBanner({ onDismiss }) {
   return (
