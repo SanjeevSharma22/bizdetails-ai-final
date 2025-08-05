@@ -1,5 +1,8 @@
 import React from "react";
 
+import React from 'react';
+ main
+
 export function ResultsView({ results }) {
   if (!results) {
     return <p>No results available.</p>;

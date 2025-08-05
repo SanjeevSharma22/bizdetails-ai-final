@@ -1,4 +1,6 @@
 import React from "react";
+import React from 'react';
+ main
 
 export function UploadScreen({ onFileUploaded }) {
   const handleChange = (e) => {
@@ -12,6 +14,10 @@ export function UploadScreen({ onFileUploaded }) {
       const columns = lines[0].split(",");
       const data = lines.slice(1).map((line) => {
         const values = line.split(",");
+      const columns = lines[0].split(',');
+      const data = lines.slice(1).map(line => {
+        const values = line.split(',');
+ main
         const row = {};
         columns.forEach((col, i) => {
           row[col] = values[i];
