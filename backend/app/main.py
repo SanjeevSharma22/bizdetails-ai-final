@@ -1,14 +1,24 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional
+import os
 import csv
-from io import StringIO
 import uuid
 import random
+from io import StringIO
+from typing import Dict, List, Optional
+
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi_jwt_auth import AuthJWT
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from .database import Base, engine, get_db
+from .models import User
+
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="BizDetails AI API")
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,12 +27,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-app = FastAPI(title="BizDetails AI API")
 
- main
+class Settings(BaseModel):
+    authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "secret")
+
+
+@AuthJWT.load_config
+def get_config():
+    return Settings()
+
 
 class UserCredentials(BaseModel):
     email: str
@@ -73,39 +88,47 @@ def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[Processe
         )
     return results
 
-    mapping: dict
- main
-
 
 @app.post("/api/auth/signup")
-async def signup(credentials: UserCredentials):
-    """Register a new user. Placeholder implementation."""
-    return {"message": "signup not implemented"}
+def signup(
+    credentials: UserCredentials,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    if db.query(User).filter(User.email == credentials.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = pwd_context.hash(credentials.password)
+    user = User(email=credentials.email, hashed_password=hashed_password)
+    db.add(user)
+    db.commit()
+    access_token = authorize.create_access_token(subject=user.email)
+    return {"access_token": access_token}
 
 
 @app.post("/api/auth/signin")
-async def signin(credentials: UserCredentials):
-    """Authenticate a user. Placeholder implementation."""
-    return {"token": "fake-jwt-token"}
+def signin(
+    credentials: UserCredentials,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    access_token = authorize.create_access_token(subject=user.email)
+    return {"access_token": access_token}
 
 
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):
-    """Accept a CSV file and return its headers."""
     content = await file.read()
     text = content.decode("utf-8")
     reader = csv.reader(StringIO(text))
     headers = next(reader, [])
     return {"headers": headers}
 
-    """Accept a CSV file and return placeholder headers."""
-    return {"headers": ["Company Name", "Country", "Industry"]}
- main
-
 
 @app.post("/api/process")
 async def process(req: ProcessRequest):
-    """Generate mock enrichment results and return a task id."""
     task_id = str(uuid.uuid4())
     TASK_RESULTS[task_id] = generate_mock_results(req.data)
     return {"task_id": task_id}
@@ -113,34 +136,17 @@ async def process(req: ProcessRequest):
 
 @app.get("/api/results")
 async def get_results(task_id: str):
-    """Return results for a given task id."""
     return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
-
-  """Start background enrichment task. Placeholder implementation."""
-    return {"task_id": "example-task-id"}
-
-
-@app.get("/api/results")
-async def get_results():
-    """Return enriched results. Placeholder implementation."""
-    return {"results": []}
- main
 
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
-    """Return the status for a given task id."""
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
-
-    """Return task status. Placeholder implementation."""
-    return {"task_id": task_id, "status": "pending"}
- main
 
 
 @app.get("/api/dashboard")
 async def dashboard():
-    """Return dashboard statistics. Placeholder implementation."""
     return {"stats": {}}
 
 
@@ -150,5 +156,4 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    """Proxy user message to LLM. Placeholder implementation."""
     return {"response": "Chat endpoint not implemented."}
