@@ -1,12 +1,10 @@
-import React from "react";
-
 import React from 'react';
- main
 
 export function ResultsView({ results }) {
   if (!results) {
     return <p>No results available.</p>;
   }
+
   return (
     <table className="min-w-full text-left border">
       <thead>
