@@ -1,15 +1,8 @@
-import React, { createContext, useContext } from "react";
-
-const TabsContext = createContext();
-
-export function Tabs({ value, onValueChange, children, className = "" }) {
-
 import React, { createContext, useContext } from 'react';
 
 const TabsContext = createContext();
 
 export function Tabs({ value, onValueChange, children, className = '' }) {
- main
   return (
     <TabsContext.Provider value={{ value, onValueChange }}>
       <div className={className}>{children}</div>
