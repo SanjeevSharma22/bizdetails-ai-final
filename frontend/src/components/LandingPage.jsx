@@ -12,13 +12,10 @@ export function LandingPage({ onSignIn }) {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
- 8aiil1-codex/develop-full-stack-web-app-bizdetails-ai
       <form
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded shadow w-80 space-y-4"
       >
-
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow w-80 space-y-4">
         <h2 className="text-xl font-semibold text-center">Sign In</h2>
         <input
           type="email"
@@ -38,8 +35,6 @@ export function LandingPage({ onSignIn }) {
         <Button type="submit" className="w-full">
           Sign In
         </Button>
-
-        <Button type="submit" className="w-full">Sign In</Button>
       </form>
     </div>
   );
