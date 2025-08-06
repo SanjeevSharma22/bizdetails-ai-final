@@ -17,7 +17,10 @@ export function TabsList({ children, className = '' }) {
 export function TabsTrigger({ value, children, className = '', ...props }) {
   const ctx = useContext(TabsContext);
   const active = ctx.value === value;
-  const activeClass = active ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600';
+  const activeClass = active
+    ? 'border-b-2 border-blue-500 text-blue-600'
+    : 'text-gray-600';
+
   return (
     <button
       className={`${activeClass} px-3 py-2 text-sm ${className}`}

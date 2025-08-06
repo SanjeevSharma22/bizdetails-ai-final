@@ -4,6 +4,7 @@ export function ResultsView({ results }) {
   if (!results) {
     return <p>No results available.</p>;
   }
+
   return (
     <table className="min-w-full text-left border">
       <thead>

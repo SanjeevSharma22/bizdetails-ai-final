@@ -3,10 +3,12 @@ import csv
 import uuid
 import random
 from io import StringIO
+
 from typing import Dict, List, Optional
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -15,7 +17,7 @@ from sqlalchemy.orm import Session
 from .database import Base, engine, get_db
 from .models import User
 
-
+# Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="BizDetails AI API")
@@ -27,26 +29,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-
+# JWT settings
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "secret")
-
 
 @AuthJWT.load_config
 def get_config():
     return Settings()
 
 
+# ---- Data models ----
+
 class UserCredentials(BaseModel):
     email: str
     password: str
 
-
 class ProcessRequest(BaseModel):
     data: List[Dict[str, Optional[str]]]
-
 
 class ProcessedResult(BaseModel):
     id: int
@@ -59,7 +61,7 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
-
+# In‐memory store for demo
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
 
@@ -68,9 +70,8 @@ def generate_mock_domain(company_name: str) -> str:
     domains = [".com", ".io", ".co", ".net"]
     return f"{clean}{random.choice(domains)}"
 
-
 def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[ProcessedResult]:
-    results = []
+    results: List[ProcessedResult] = []
     for idx, row in enumerate(data, start=1):
         name = row.get("Company Name") or f"Company {idx}"
         results.append(
@@ -88,6 +89,7 @@ def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[Processe
         )
     return results
 
+# ---- Auth endpoints ----
 
 @app.post("/api/auth/signup")
 def signup(
@@ -104,7 +106,6 @@ def signup(
     access_token = authorize.create_access_token(subject=user.email)
     return {"access_token": access_token}
 
-
 @app.post("/api/auth/signin")
 def signin(
     credentials: UserCredentials,
@@ -118,6 +119,8 @@ def signin(
     return {"access_token": access_token}
 
 
+# ---- Upload & processing ----
+
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):
     content = await file.read()
@@ -126,33 +129,27 @@ async def upload(file: UploadFile = File(...)):
     headers = next(reader, [])
     return {"headers": headers}
 
-
 @app.post("/api/process")
 async def process(req: ProcessRequest):
     task_id = str(uuid.uuid4())
     TASK_RESULTS[task_id] = generate_mock_results(req.data)
     return {"task_id": task_id}
 
-
 @app.get("/api/results")
 async def get_results(task_id: str):
     return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
-
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
 
-
 @app.get("/api/dashboard")
 async def dashboard():
     return {"stats": {}}
 
-
 class ChatRequest(BaseModel):
     message: str
-
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):

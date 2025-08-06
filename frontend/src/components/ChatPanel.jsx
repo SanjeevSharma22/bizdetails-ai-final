@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 
 export function ChatPanel({ onClose }) {
   const [message, setMessage] = useState('');
+
   return (
     <div className="bg-white border rounded h-full flex flex-col">
       <div className="flex justify-between items-center p-2 border-b">

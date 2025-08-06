@@ -20,6 +20,9 @@ import { ChatPanel } from './components/ChatPanel';
 import { ComplianceBanner } from './components/ComplianceBanner';
 import { LandingPage } from './components/LandingPage';
 
+// NOTE: Ensure generateMockResults is imported if used
+import { generateMockResults } from './utils/mockData';
+
 const API = import.meta.env.VITE_API_BASE;
 
 export default function App() {
@@ -50,20 +53,11 @@ export default function App() {
 
   const handleColumnMappingComplete = async (mappedData) => {
     setUploadStep('processing');
-    try {
-      const res = await fetch(`${API}/api/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: mappedData }),
-      });
-      const { task_id } = await res.json();
-      const resultsRes = await fetch(`${API}/api/results?task_id=${task_id}`);
-      const { results } = await resultsRes.json();
-      setProcessedResults(results);
+    setTimeout(() => {
+      setProcessedResults(generateMockResults(mappedData));
       setActiveTab('results');
-    } finally {
       setUploadStep('upload');
-    }
+    }, 0);
   };
 
   const handleBackToUpload = () => {
@@ -73,8 +67,6 @@ export default function App() {
 
   const getUploadTabContent = () => {
     switch (uploadStep) {
-      case 'upload':
-        return <UploadScreen onFileUploaded={handleFileUploaded} />;
       case 'mapping':
         return (
           <ColumnMappingScreen
@@ -90,13 +82,12 @@ export default function App() {
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
                 <Database className="w-8 h-8 text-blue-600" />
               </div>
-              <div>
-                <h3 className="text-xl mb-2">Processing Your Data</h3>
-                <p className="text-gray-500">Mapping companies to domains using AI...</p>
-              </div>
+              <h3 className="text-xl mb-2">Processing Your Data</h3>
+              <p className="text-gray-500">Mapping companies to domains using AI...</p>
             </div>
           </div>
         );
+      case 'upload':
       default:
         return <UploadScreen onFileUploaded={handleFileUploaded} />;
     }
@@ -108,10 +99,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {showCompliance && (
-        <ComplianceBanner onDismiss={() => setShowCompliance(false)} />
-      )}
-
+      {showCompliance && <ComplianceBanner onDismiss={() => setShowCompliance(false)} />}
       <header className="bg-white border-b border-blue-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -137,12 +125,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-gray-500" />
                 <span className="text-sm text-gray-700">{user.name}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSignOut}
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-gray-500 hover:text-gray-700">
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
@@ -151,51 +134,40 @@ export default function App() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-6">
-          <div className={`flex-1 transition-all duration-300 ${showChat ? 'mr-80' : ''}`}>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 mb-8">
-                <TabsTrigger value="upload" className="flex items-center gap-2">
-                  {uploadStep === 'mapping' ? (
-                    <Settings className="w-4 h-4" />
-                  ) : (
-                    <Upload className="w-4 h-4" />
-                  )}
-                  {uploadStep === 'mapping' ? 'Column Mapping' : 'Upload & Map'}
-                </TabsTrigger>
-                <TabsTrigger value="results" className="flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
-                  Results
-                </TabsTrigger>
-                <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
-                  Dashboard
-                </TabsTrigger>
-              </TabsList>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-6">
+        <div className={`flex-1 transition-all duration-300 ${showChat ? 'mr-80' : ''}`}>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsTrigger value="upload" className="flex items-center gap-2">
+                {uploadStep === 'mapping' ? <Settings className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                {uploadStep === 'mapping' ? 'Column Mapping' : 'Upload & Map'}
+              </TabsTrigger>
+              <TabsTrigger value="results" className="flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Results
+              </TabsTrigger>
+              <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" /> Dashboard
+              </TabsTrigger>
+            </TabsList>
 
-              <TabsContent value="upload" className="space-y-6">
-                {getUploadTabContent()}
-              </TabsContent>
-
-              <TabsContent value="results" className="space-y-6">
-                <ResultsView results={processedResults} />
-              </TabsContent>
-
-              <TabsContent value="dashboard" className="space-y-6">
-                <Dashboard />
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {showChat && (
-            <div className="fixed right-6 top-24 bottom-6 w-80">
-              <ChatPanel onClose={() => setShowChat(false)} />
-            </div>
-          )}
+            <TabsContent value="upload" className="space-y-6">
+              {getUploadTabContent()}
+            </TabsContent>
+            <TabsContent value="results" className="space-y-6">
+              <ResultsView results={processedResults} />
+            </TabsContent>
+            <TabsContent value="dashboard" className="space-y-6">
+              <Dashboard />
+            </TabsContent>
+          </Tabs>
         </div>
-      </div>
+
+        {showChat && (
+          <div className="fixed right-6 top-24 bottom-6 w-80">
+            <ChatPanel onClose={() => setShowChat(false)} />
+          </div>
+        )}
+      </main>
     </div>
   );
 }
-
