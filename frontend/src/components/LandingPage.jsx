@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+import { Database } from "lucide-react";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 
 export function LandingPage({ onSignIn }) {
   const [fullName, setFullName] = useState("");
@@ -101,8 +103,22 @@ export function LandingPage({ onSignIn }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center p-6">
-      <div className="max-w-5xl w-full mx-auto grid md:grid-cols-2 gap-12 items-center">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col">
+      <header className="bg-white border-b border-blue-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center h-16 space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+              <Database className="w-5 h-5 text-white" />
+            </div>
+            <h1 className="text-xl text-gray-900">BizDetails AI</h1>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+              AI-Powered
+            </Badge>
+          </div>
+        </div>
+      </header>
+      <main className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-5xl w-full mx-auto grid md:grid-cols-2 gap-12 items-center">
         <div className="space-y-6">
           <div>
             <h1 className="text-4xl font-bold text-gray-900">BizDetails AI</h1>
@@ -308,6 +324,7 @@ export function LandingPage({ onSignIn }) {
           </div>
         </form>
       </div>
-    </div>
+    </main>
+  </div>
   );
 }
