@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { Upload, Database, MessageCircle, BarChart3, FileText, Settings, User, LogOut } from 'lucide-react';
+import {
+  Upload,
+  Database,
+  MessageCircle,
+  BarChart3,
+  FileText,
+  Settings,
+  User,
+  LogOut,
+} from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './components/ui/tabs';
 import { Badge } from './components/ui/badge';
@@ -11,6 +20,8 @@ import { ChatPanel } from './components/ChatPanel';
 import { ComplianceBanner } from './components/ComplianceBanner';
 import { LandingPage } from './components/LandingPage';
 
+const API = import.meta.env.VITE_API_BASE;
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('upload');
@@ -20,8 +31,8 @@ export default function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processedResults, setProcessedResults] = useState(null);
 
-  const handleSignIn = (email, name) => {
-    setUser({ email, name });
+  const handleSignIn = ({ email, name, token }) => {
+    setUser({ email, name, token });
   };
 
   const handleSignOut = () => {
@@ -37,38 +48,27 @@ export default function App() {
     setUploadStep('mapping');
   };
 
-  const handleColumnMappingComplete = (mappedData) => {
+  const handleColumnMappingComplete = async (mappedData) => {
     setUploadStep('processing');
-    setTimeout(() => {
-      setProcessedResults(generateMockResults(mappedData));
+    try {
+      const res = await fetch(`${API}/api/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: mappedData }),
+      });
+      const { task_id } = await res.json();
+      const resultsRes = await fetch(`${API}/api/results?task_id=${task_id}`);
+      const { results } = await resultsRes.json();
+      setProcessedResults(results);
       setActiveTab('results');
+    } finally {
       setUploadStep('upload');
-    }, 2000);
+    }
   };
 
   const handleBackToUpload = () => {
     setUploadStep('upload');
     setUploadedFile(null);
-  };
-
-  const generateMockResults = (data) => {
-    return data.map((row, index) => ({
-      id: index + 1,
-      companyName: row['Company Name'] || `Company ${index + 1}`,
-      originalData: row,
-      domain: generateMockDomain(row['Company Name'] || `Company ${index + 1}`),
-      confidence: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
-      matchType: ['Exact', 'Contextual', 'Reverse', 'Manual'][Math.floor(Math.random() * 4)],
-      notes: Math.random() > 0.7 ? 'Fuzzy match applied' : null,
-      country: row.Country || 'US',
-      industry: row.Industry || 'Technology'
-    }));
-  };
-
-  const generateMockDomain = (companyName) => {
-    const cleanName = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const domains = ['.com', '.io', '.co', '.net'];
-    return `${cleanName}${domains[Math.floor(Math.random() * domains.length)]}`;
   };
 
   const getUploadTabContent = () => {
@@ -195,15 +195,7 @@ export default function App() {
           )}
         </div>
       </div>
-
-import React from 'react';
-
-export default function App() {
-  return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold">BizDetails AI</h1>
-      <p>Frontend scaffold not yet implemented.</p>
- main
     </div>
   );
 }
+
