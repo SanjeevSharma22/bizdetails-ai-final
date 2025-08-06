@@ -5,12 +5,14 @@ export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
   const API = import.meta.env.VITE_API_BASE;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch(`${API}/api/auth/signin`, {
+      const endpoint = isSignup ? 'signup' : 'signin';
+      const res = await fetch(`${API}/api/auth/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -20,7 +22,7 @@ export function LandingPage({ onSignIn }) {
         onSignIn({ email, name: name || 'User', token: data.access_token });
       }
     } catch (err) {
-      console.error('Sign in failed', err);
+      console.error(`Sign ${isSignup ? 'up' : 'in'} failed`, err);
     }
   };
 
@@ -30,7 +32,9 @@ export function LandingPage({ onSignIn }) {
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded shadow w-80 space-y-4"
       >
-        <h2 className="text-xl font-semibold text-center">Sign In</h2>
+        <h2 className="text-xl font-semibold text-center">
+          {isSignup ? 'Sign Up' : 'Sign In'}
+        </h2>
         <input
           type="email"
           required
@@ -55,8 +59,33 @@ export function LandingPage({ onSignIn }) {
           onChange={(e) => setPassword(e.target.value)}
         />
         <Button type="submit" className="w-full">
-          Sign In
+          {isSignup ? 'Sign Up' : 'Sign In'}
         </Button>
+        <div className="text-sm text-center">
+          {isSignup ? (
+            <>
+              Already have an account?{' '}
+              <button
+                type="button"
+                className="text-blue-600 underline"
+                onClick={() => setIsSignup(false)}
+              >
+                Sign In
+              </button>
+            </>
+          ) : (
+            <>
+              Need an account?{' '}
+              <button
+                type="button"
+                className="text-blue-600 underline"
+                onClick={() => setIsSignup(true)}
+              >
+                Sign Up
+              </button>
+            </>
+          )}
+        </div>
       </form>
     </div>
   );
