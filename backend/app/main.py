@@ -232,6 +232,16 @@ def signin(
     return {"access_token": access_token}
 
 
+@app.get("/api/auth/verify")
+def verify_token(authorize: AuthJWT = Depends()):
+    try:
+        authorize.jwt_required()
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    current_user = authorize.get_jwt_subject()
+    return {"email": current_user}
+
+
 # ---- Upload & processing ----
 
 @app.post("/api/upload")
