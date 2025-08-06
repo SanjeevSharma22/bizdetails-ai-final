@@ -2,6 +2,7 @@ import os
 import csv
 import uuid
 import random
+import re
 from io import StringIO
 
 from typing import Dict, List, Optional
@@ -13,6 +14,8 @@ from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
+import pycountry
 
 from .database import Base, engine, get_db
 from .models import User
@@ -49,6 +52,7 @@ class UserCredentials(BaseModel):
 
 class ProcessRequest(BaseModel):
     data: List[Dict[str, Optional[str]]]
+    mapping: Optional[Dict[str, str]] = None
 
 class ProcessedResult(BaseModel):
     id: int
@@ -88,6 +92,115 @@ def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[Processe
             )
         )
     return results
+
+
+# ---- Preprocessing utilities ----
+
+LEGAL_SUFFIXES = {
+    "inc",
+    "inc.",
+    "ltd",
+    "ltd.",
+    "pvt",
+    "pvt.",
+    "pvt ltd",
+    "pvt. ltd",
+    "llc",
+    "corp",
+    "co",
+    "co.",
+    "gmbh",
+    "sa",
+    "s.a.",
+    "ag",
+    "plc",
+    "limited",
+}
+
+INDUSTRY_TAXONOMY = {
+    "technology": "Technology",
+    "tech": "Technology",
+    "finance": "Finance",
+    "financial services": "Finance",
+    "healthcare": "Healthcare",
+}
+
+
+def strip_legal_suffixes(name: str) -> str:
+    tokens = name.split()
+    while tokens:
+        token = re.sub(r"[^a-z.]", "", tokens[-1])
+        if token in LEGAL_SUFFIXES:
+            tokens.pop()
+        else:
+            break
+    return " ".join(tokens)
+
+
+def normalize_company_name(name: str) -> str:
+    cleaned = name.strip().lower()
+    cleaned = strip_legal_suffixes(cleaned)
+    return cleaned
+
+
+def normalize_country(country: Optional[str]) -> Optional[str]:
+    if not country:
+        return None
+    country = country.strip()
+    if len(country) == 2 and country.isalpha():
+        try:
+            return pycountry.countries.get(alpha_2=country.upper()).alpha_2
+        except AttributeError:
+            return None
+    try:
+        return pycountry.countries.search_fuzzy(country)[0].alpha_2
+    except LookupError:
+        return None
+
+
+def normalize_industry(industry: Optional[str]) -> Optional[str]:
+    if not industry:
+        return None
+    return INDUSTRY_TAXONOMY.get(industry.strip().lower())
+
+
+def normalize_subindustry(subindustry: Optional[str]) -> Optional[str]:
+    if not subindustry:
+        return None
+    return INDUSTRY_TAXONOMY.get(subindustry.strip().lower())
+
+
+def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
+    cleaned: List[Dict[str, Optional[str]]] = []
+    seen = set()
+    for row in rows:
+        original_name = row.get("Company Name") or ""
+        if not original_name.strip():
+            raise HTTPException(status_code=400, detail="Company Name is required")
+        name = normalize_company_name(original_name)
+        country = normalize_country(row.get("Country"))
+        industry = normalize_industry(row.get("Industry"))
+        subindustry = normalize_subindustry(row.get("Subindustry"))
+        company_size = row.get("Company Size")
+        keywords = row.get("Keywords")
+
+        identifier = (name, country, industry, subindustry, company_size, keywords)
+        if identifier in seen:
+            continue
+        seen.add(identifier)
+
+        cleaned.append(
+            {
+                "Company Name": name,
+                "Country": country,
+                "Industry": industry,
+                "Subindustry": subindustry,
+                "Company Size": company_size,
+                "Keywords": keywords,
+            }
+        )
+
+    return cleaned
 
 # ---- Auth endpoints ----
 
@@ -131,8 +244,19 @@ async def upload(file: UploadFile = File(...)):
 
 @app.post("/api/process")
 async def process(req: ProcessRequest):
+    rows = req.data
+    if req.mapping:
+        mapped_rows: List[Dict[str, Optional[str]]] = []
+        for row in rows:
+            mapped_row = {}
+            for field, col in req.mapping.items():
+                mapped_row[field] = row.get(col)
+            mapped_rows.append(mapped_row)
+        rows = mapped_rows
+
+    processed = preprocess_rows(rows)
     task_id = str(uuid.uuid4())
-    TASK_RESULTS[task_id] = generate_mock_results(req.data)
+    TASK_RESULTS[task_id] = generate_mock_results(processed)
     return {"task_id": task_id}
 
 @app.get("/api/results")

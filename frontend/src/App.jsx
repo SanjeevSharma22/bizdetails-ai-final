@@ -5,7 +5,6 @@ import {
   MessageCircle,
   BarChart3,
   FileText,
-  Settings,
   User,
   LogOut,
 } from 'lucide-react';
@@ -156,8 +155,8 @@ export default function App() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-8">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
-                  {uploadStep === 'mapping' ? <Settings className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                  {uploadStep === 'mapping' ? 'Column Mapping' : 'Upload & Map'}
+                  <Upload className="w-4 h-4" />
+                  Data Enrichment (CSV Upload)
                 </TabsTrigger>
                 <TabsTrigger value="results" className="flex items-center gap-2">
                   <FileText className="w-4 h-4" />
