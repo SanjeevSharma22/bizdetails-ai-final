@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Upload,
   Database,
@@ -24,6 +24,7 @@ const API = import.meta.env.VITE_API_BASE;
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [activeTab, setActiveTab] = useState('upload');
   const [uploadStep, setUploadStep] = useState('upload');
   const [showChat, setShowChat] = useState(false);
@@ -31,8 +32,60 @@ export default function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processedResults, setProcessedResults] = useState(null);
 
+  const isTokenExpired = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp) {
+        return payload.exp * 1000 < Date.now();
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (!isTokenExpired(parsed.token)) {
+        fetch(`${API}/api/auth/verify`, {
+          headers: { Authorization: `Bearer ${parsed.token}` },
+        })
+          .then((res) => {
+            if (res.ok) {
+              setUser(parsed);
+              const savedTab = localStorage.getItem('activeTab');
+              if (savedTab) setActiveTab(savedTab);
+            } else {
+              localStorage.removeItem('user');
+              localStorage.removeItem('activeTab');
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem('user');
+            localStorage.removeItem('activeTab');
+          })
+          .finally(() => setAuthChecking(false));
+        return;
+      } else {
+        localStorage.removeItem('user');
+        localStorage.removeItem('activeTab');
+      }
+    }
+    setAuthChecking(false);
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('activeTab', activeTab);
+    }
+  }, [activeTab, user]);
+
   const handleSignIn = ({ email, name, token }) => {
-    setUser({ email, name, token });
+    const newUser = { email, name, token };
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   const handleSignOut = () => {
@@ -41,6 +94,8 @@ export default function App() {
     setUploadStep('upload');
     setUploadedFile(null);
     setProcessedResults(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('activeTab');
   };
 
   const handleFileUploaded = (fileData) => {
@@ -108,6 +163,14 @@ export default function App() {
         return <UploadScreen onFileUploaded={handleFileUploaded} />;
     }
   };
+
+  if (authChecking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) {
     return <LandingPage onSignIn={handleSignIn} />;
