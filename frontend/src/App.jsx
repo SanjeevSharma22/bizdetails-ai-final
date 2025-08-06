@@ -1,6 +1,70 @@
+-import React, { useState } from 'react';
+-import {
+-  Upload,
+-  Database,
+-  MessageCircle,
+-  BarChart3,
+-  FileText,
+-  User,
+-  LogOut,
+-} from 'lucide-react';
++import React, { useState } from 'react';
++import {
++  Upload,
++  Settings,
++  Database,
++  MessageCircle,
++  BarChart3,
++  FileText,
++  User,
++  LogOut,
++} from 'lucide-react';
+@@
+               <TabsList className="grid w-full grid-cols-3 mb-8">
+-                <TabsTrigger value="upload" className="flex items-center gap-2">
+-<<<<<<< ngu2d2-codex/add-csv-user-input-and-column-mapping
+-                  <Upload className="w-4 h-4" />
+-                  Data Enrichment (CSV Upload)
+-=======
+-                  {uploadStep === 'mapping' ? <Settings className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+-                  {uploadStep === 'mapping' ? 'Column Mapping' : 'Data Enrichment (CSV Upload)'}
+->>>>>>> main
+-                </TabsTrigger>
++                <TabsTrigger value="upload" className="flex items-center gap-2">
++                  {uploadStep === 'mapping'
++                    ? <Settings className="w-4 h-4" />
++                    : <Upload className="w-4 h-4" />}
++                  {uploadStep === 'mapping'
++                    ? 'Column Mapping'
++                    : 'Data Enrichment (CSV Upload)'}
++                </TabsTrigger>
+With this:
+
+When you’re in the mapping step, you’ll see a ⚙️ (Settings) icon and “Column Mapping”
+
+Otherwise you’ll see the 📤 (Upload) icon and “Data Enrichment (CSV Upload)”
+
+
+
+
+
+
+
+
+You said:
+give me complete code after resolving conflict
+
+
+ChatGPT said:
+
+Thought for a couple of seconds
+jsx
+Copy
+Edit
 import React, { useState } from 'react';
 import {
   Upload,
+  Settings,
   Database,
   MessageCircle,
   BarChart3,
@@ -155,8 +219,12 @@ export default function App() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-8">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
-                  <Upload className="w-4 h-4" />
-                  Data Enrichment (CSV Upload)
+                  {uploadStep === 'mapping'
+                    ? <Settings className="w-4 h-4" />
+                    : <Upload className="w-4 h-4" />}
+                  {uploadStep === 'mapping'
+                    ? 'Column Mapping'
+                    : 'Data Enrichment (CSV Upload)'}
                 </TabsTrigger>
                 <TabsTrigger value="results" className="flex items-center gap-2">
                   <FileText className="w-4 h-4" />

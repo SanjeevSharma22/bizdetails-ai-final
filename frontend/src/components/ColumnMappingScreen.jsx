@@ -45,6 +45,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
           </option>
         ))}
       </select>
+      {!required && <span className="text-xs text-gray-500">Optional</span>}
     </div>
   );
 
