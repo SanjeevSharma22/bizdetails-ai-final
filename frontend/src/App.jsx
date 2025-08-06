@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Upload,
   Database,
@@ -31,8 +31,57 @@ export default function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processedResults, setProcessedResults] = useState(null);
 
+  const isTokenExpired = (token) => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp) {
+        return payload.exp * 1000 < Date.now();
+      }
+      return false;
+    } catch {
+      return true;
+    }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const parsed = JSON.parse(storedUser);
+      if (!isTokenExpired(parsed.token)) {
+        fetch(`${API}/api/auth/verify`, {
+          headers: { Authorization: `Bearer ${parsed.token}` },
+        })
+          .then((res) => {
+            if (res.ok) {
+              setUser(parsed);
+              const savedTab = localStorage.getItem('activeTab');
+              if (savedTab) setActiveTab(savedTab);
+            } else {
+              localStorage.removeItem('user');
+              localStorage.removeItem('activeTab');
+            }
+          })
+          .catch(() => {
+            localStorage.removeItem('user');
+            localStorage.removeItem('activeTab');
+          });
+      } else {
+        localStorage.removeItem('user');
+        localStorage.removeItem('activeTab');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('activeTab', activeTab);
+    }
+  }, [activeTab, user]);
+
   const handleSignIn = ({ email, name, token }) => {
-    setUser({ email, name, token });
+    const newUser = { email, name, token };
+    setUser(newUser);
+    localStorage.setItem('user', JSON.stringify(newUser));
   };
 
   const handleSignOut = () => {
@@ -41,6 +90,8 @@ export default function App() {
     setUploadStep('upload');
     setUploadedFile(null);
     setProcessedResults(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('activeTab');
   };
 
   const handleFileUploaded = (fileData) => {
