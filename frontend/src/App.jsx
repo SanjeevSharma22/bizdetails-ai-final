@@ -35,10 +35,7 @@ export default function App() {
   const isTokenExpired = (token) => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.exp) {
-        return payload.exp * 1000 < Date.now();
-      }
-      return false;
+      return payload.exp ? payload.exp * 1000 < Date.now() : false;
     } catch {
       return true;
     }
@@ -130,7 +127,9 @@ export default function App() {
       originalData: row,
       domain: generateMockDomain(row['Company Name'] || `Company ${index + 1}`),
       confidence: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
-      matchType: ['Exact', 'Contextual', 'Reverse', 'Manual'][Math.floor(Math.random() * 4)],
+      matchType: ['Exact', 'Contextual', 'Reverse', 'Manual'][
+        Math.floor(Math.random() * 4)
+      ],
       notes: Math.random() > 0.7 ? 'Fuzzy match applied' : null,
       country: row.Country || 'US',
       industry: row.Industry || 'Technology',
@@ -158,7 +157,6 @@ export default function App() {
             </div>
           </div>
         );
-      case 'upload':
       default:
         return <UploadScreen onFileUploaded={handleFileUploaded} />;
     }
@@ -219,7 +217,7 @@ export default function App() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <TabsList className="grid w-full grid-cols-3 mb-8">
                 <TabsTrigger value="upload" className="flex items-center gap-2">
-                  {uploadStep === 'mapping' ? <Settings className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+                  {uploadStep === 'mapping' ? <Settings className="w-4 h-4" /> : <Upload className="w-4 h-4" />} 
                   {uploadStep === 'mapping' ? 'Column Mapping' : 'Data Enrichment (CSV Upload)'}
                 </TabsTrigger>
                 <TabsTrigger value="results" className="flex items-center gap-2">
