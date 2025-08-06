@@ -4,10 +4,24 @@ import { Button } from './ui/button';
 export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
+  const [password, setPassword] = useState('');
+  const API = import.meta.env.VITE_API_BASE;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSignIn(email, name || 'User');
+    try {
+      const res = await fetch(`${API}/api/auth/signin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        onSignIn({ email, name: name || 'User', token: data.access_token });
+      }
+    } catch (err) {
+      console.error('Sign in failed', err);
+    }
   };
 
   return (
@@ -31,6 +45,14 @@ export function LandingPage({ onSignIn }) {
           className="w-full border px-2 py-1 rounded"
           value={name}
           onChange={(e) => setName(e.target.value)}
+        />
+        <input
+          type="password"
+          required
+          placeholder="Password"
+          className="w-full border px-2 py-1 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
         />
         <Button type="submit" className="w-full">
           Sign In

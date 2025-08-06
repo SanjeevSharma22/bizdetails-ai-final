@@ -1,15 +1,26 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import List, Dict, Optional
+import os
 import csv
 import uuid
 import random
 from io import StringIO
 
-app = FastAPI(title="BizDetails AI API")
+from typing import Dict, List, Optional
 
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi_jwt_auth import AuthJWT
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from .database import Base, engine, get_db
+from .models import User
+
+# Create tables
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="BizDetails AI API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,6 +28,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# JWT settings
+class Settings(BaseModel):
+    authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "secret")
+
+@AuthJWT.load_config
+def get_config():
+    return Settings()
+
+
+# ---- Data models ----
 
 class UserCredentials(BaseModel):
     email: str
@@ -36,7 +61,9 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
+# In‐memory store for demo
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
+
 
 def generate_mock_domain(company_name: str) -> str:
     clean = "".join(ch for ch in company_name.lower() if ch.isalnum())
@@ -62,13 +89,37 @@ def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[Processe
         )
     return results
 
+# ---- Auth endpoints ----
+
 @app.post("/api/auth/signup")
-async def signup(credentials: UserCredentials):
-    return {"message": "signup not implemented"}
+def signup(
+    credentials: UserCredentials,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    if db.query(User).filter(User.email == credentials.email).first():
+        raise HTTPException(status_code=400, detail="Email already registered")
+    hashed_password = pwd_context.hash(credentials.password)
+    user = User(email=credentials.email, hashed_password=hashed_password)
+    db.add(user)
+    db.commit()
+    access_token = authorize.create_access_token(subject=user.email)
+    return {"access_token": access_token}
 
 @app.post("/api/auth/signin")
-async def signin(credentials: UserCredentials):
-    return {"token": "fake-jwt-token"}
+def signin(
+    credentials: UserCredentials,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not pwd_context.verify(credentials.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    access_token = authorize.create_access_token(subject=user.email)
+    return {"access_token": access_token}
+
+
+# ---- Upload & processing ----
 
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):

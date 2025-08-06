@@ -20,6 +20,11 @@ import { ChatPanel } from './components/ChatPanel';
 import { ComplianceBanner } from './components/ComplianceBanner';
 import { LandingPage } from './components/LandingPage';
 
+// NOTE: Ensure generateMockResults is imported if used
+import { generateMockResults } from './utils/mockData';
+
+const API = import.meta.env.VITE_API_BASE;
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [activeTab, setActiveTab] = useState('upload');
@@ -29,8 +34,8 @@ export default function App() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processedResults, setProcessedResults] = useState(null);
 
-  const handleSignIn = (email, name) => {
-    setUser({ email, name });
+  const handleSignIn = ({ email, name, token }) => {
+    setUser({ email, name, token });
   };
 
   const handleSignOut = () => {
@@ -46,14 +51,13 @@ export default function App() {
     setUploadStep('mapping');
   };
 
-  const handleColumnMappingComplete = (mappedData) => {
+  const handleColumnMappingComplete = async (mappedData) => {
     setUploadStep('processing');
     setTimeout(() => {
-      // Assuming generateMockResults is imported or defined elsewhere
       setProcessedResults(generateMockResults(mappedData));
       setActiveTab('results');
       setUploadStep('upload');
-    }, 2000);
+    }, 0);
   };
 
   const handleBackToUpload = () => {
@@ -131,8 +135,7 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-6">
-        <div className={`flex-1 transition-all duration-300 ${showChat ? 'mr-80' : ''}
-        `}>
+        <div className={`flex-1 transition-all duration-300 ${showChat ? 'mr-80' : ''}`}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="upload" className="flex items-center gap-2">
