@@ -21,7 +21,7 @@ import { ComplianceBanner } from './components/ComplianceBanner';
 import { LandingPage } from './components/LandingPage';
 
 // NOTE: Ensure generateMockResults is imported if used
-import { generateMockResults } from './utils/mockData';
+//import { generateMockResults } from './utils/mockData';
 
 const API = import.meta.env.VITE_API_BASE;
 
