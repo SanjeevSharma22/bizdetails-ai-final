@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 import pycountry
 
 from .database import Base, engine, get_db
-from .models import User
+from .models import User, CompanyUpdated
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -49,6 +49,7 @@ def get_config():
 class UserCredentials(BaseModel):
     email: str
     password: str
+    role: Optional[str] = "user"
 
 class ProcessRequest(BaseModel):
     data: List[Dict[str, Optional[str]]]
@@ -213,11 +214,11 @@ def signup(
     if db.query(User).filter(User.email == credentials.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = pwd_context.hash(credentials.password)
-    user = User(email=credentials.email, hashed_password=hashed_password)
+    user = User(email=credentials.email, hashed_password=hashed_password, role=credentials.role or "user")
     db.add(user)
     db.commit()
-    access_token = authorize.create_access_token(subject=user.email)
-    return {"access_token": access_token}
+    access_token = authorize.create_access_token(subject=user.email, user_claims={"role": user.role})
+    return {"access_token": access_token, "role": user.role}
 
 @app.post("/api/auth/signin")
 def signin(
@@ -228,8 +229,8 @@ def signin(
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    access_token = authorize.create_access_token(subject=user.email)
-    return {"access_token": access_token}
+    access_token = authorize.create_access_token(subject=user.email, user_claims={"role": user.role})
+    return {"access_token": access_token, "role": user.role}
 
 
 @app.get("/api/auth/verify")
@@ -239,7 +240,57 @@ def verify_token(authorize: AuthJWT = Depends()):
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
     current_user = authorize.get_jwt_subject()
-    return {"email": current_user}
+    claims = authorize.get_raw_jwt()
+    return {"email": current_user, "role": claims.get("role")}
+
+
+# ---- Superadmin company upload ----
+
+
+@app.post("/api/superadmin/upload-companies")
+async def upload_companies(
+    file: UploadFile = File(...),
+    authorize: AuthJWT = Depends(),
+    db: Session = Depends(get_db),
+):
+    authorize.jwt_required()
+    claims = authorize.get_raw_jwt()
+    if claims.get("role") != "superadmin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    content = await file.read()
+    text = content.decode("utf-8")
+    reader = csv.DictReader(StringIO(text))
+    inserted = 0
+    updated = 0
+    for row in reader:
+        domain = (row.get("domain") or "").strip().lower()
+        if not domain:
+            continue
+        countries = row.get("countries")
+        keywords = row.get("keywords_cntxt")
+        data = {
+            "name": row.get("name"),
+            "domain": domain,
+            "countries": [c.strip() for c in countries.split(",") if c.strip()] if countries else None,
+            "hq": row.get("hq"),
+            "industry": row.get("industry"),
+            "subindustry": row.get("subindustry"),
+            "keywords_cntxt": [k.strip() for k in keywords.split(",") if k.strip()] if keywords else None,
+            "size": row.get("size"),
+            "linkedin_url": row.get("linkedin_url"),
+        }
+        existing = db.query(CompanyUpdated).filter_by(domain=domain).first()
+        if existing:
+            for key, value in data.items():
+                if key != "domain" and value is not None:
+                    setattr(existing, key, value)
+            updated += 1
+        else:
+            db.add(CompanyUpdated(**data))
+            inserted += 1
+    db.commit()
+    return {"inserted": inserted, "updated": updated}
 
 
 # ---- Upload & processing ----
