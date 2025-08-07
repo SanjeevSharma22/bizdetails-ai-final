@@ -1,7 +1,6 @@
 import os
 import csv
 import uuid
-import random
 import re
 from io import StringIO
 
@@ -18,7 +17,7 @@ from sqlalchemy.orm import Session
 import pycountry
 
 from .database import Base, engine, get_db
-from .models import User
+from .models import User, CompanyUpdated
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -65,32 +64,50 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
-# In‐memory store for demo
+# In-memory store for processed tasks
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
 
-def generate_mock_domain(company_name: str) -> str:
-    clean = "".join(ch for ch in company_name.lower() if ch.isalnum())
-    domains = [".com", ".io", ".co", ".net"]
-    return f"{clean}{random.choice(domains)}"
-
-def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[ProcessedResult]:
+def enrich_domains(
+    data: List[Dict[str, Optional[str]]], db: Session
+) -> List[ProcessedResult]:
     results: List[ProcessedResult] = []
     for idx, row in enumerate(data, start=1):
-        name = row.get("Company Name") or f"Company {idx}"
-        results.append(
-            ProcessedResult(
-                id=idx,
-                companyName=name,
-                originalData=row,
-                domain=generate_mock_domain(name),
-                confidence=random.choice(["High", "Medium", "Low"]),
-                matchType=random.choice(["Exact", "Contextual", "Reverse", "Manual"]),
-                notes=None,
-                country=row.get("Country") or "US",
-                industry=row.get("Industry") or "Technology",
-            )
+        domain = (row.get("Domain") or "").lower()
+        company = (
+            db.query(CompanyUpdated).filter(CompanyUpdated.domain == domain).first()
         )
+        if company:
+            country = (
+                company.countries[0] if company.countries else ""
+            )
+            results.append(
+                ProcessedResult(
+                    id=idx,
+                    companyName=company.name or "",
+                    originalData=row,
+                    domain=company.domain,
+                    confidence="High",
+                    matchType="Exact",
+                    notes=None,
+                    country=country,
+                    industry=company.industry or "",
+                )
+            )
+        else:
+            results.append(
+                ProcessedResult(
+                    id=idx,
+                    companyName="",
+                    originalData=row,
+                    domain=domain,
+                    confidence="Low",
+                    matchType="None",
+                    notes="Domain not found",
+                    country="",
+                    industry="",
+                )
+            )
     return results
 
 
@@ -253,7 +270,7 @@ async def upload(file: UploadFile = File(...)):
     return {"headers": headers}
 
 @app.post("/api/process")
-async def process(req: ProcessRequest):
+async def process(req: ProcessRequest, db: Session = Depends(get_db)):
     rows = req.data
     if req.mapping:
         mapped_rows: List[Dict[str, Optional[str]]] = []
@@ -264,9 +281,9 @@ async def process(req: ProcessRequest):
             mapped_rows.append(mapped_row)
         rows = mapped_rows
 
-    processed = preprocess_rows(rows)
+    enriched = enrich_domains(rows, db)
     task_id = str(uuid.uuid4())
-    TASK_RESULTS[task_id] = generate_mock_results(processed)
+    TASK_RESULTS[task_id] = enriched
     return {"task_id": task_id}
 
 @app.get("/api/results")
