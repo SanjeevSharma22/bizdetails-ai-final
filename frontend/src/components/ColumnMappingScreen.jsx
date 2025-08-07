@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack }) {
   const [showModal, setShowModal] = useState(false);
   const [mapping, setMapping] = useState({
+    domain: '',
     companyName: '',
     country: '',
     industry: '',
@@ -13,8 +14,12 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
   });
 
   const handleSubmit = () => {
+    if (!mapping.domain && !mapping.companyName) {
+      return;
+    }
     const mapped = uploadedFile.data.map((row) => {
       const result = {};
+      if (mapping.domain) result.Domain = row[mapping.domain];
       if (mapping.companyName) result['Company Name'] = row[mapping.companyName];
       if (mapping.country) result.Country = row[mapping.country];
       if (mapping.industry) result.Industry = row[mapping.industry];
@@ -66,7 +71,9 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
           <div className="bg-white p-6 rounded shadow-md w-full max-w-md space-y-4">
             <h2 className="text-lg font-semibold">Map Columns</h2>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+              {renderSelect('Domain', 'domain', true)}
               {renderSelect('Company Name', 'companyName', true)}
+              <p className="text-xs text-gray-500 -mt-2">Domain or Company Name is required.</p>
               {renderSelect('Company Country', 'country')}
               {renderSelect('Company Industry', 'industry')}
               {renderSelect('Company Subindustry', 'subindustry')}
@@ -77,7 +84,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
               <Button variant="outline" onClick={() => setShowModal(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={!mapping.companyName}>
+              <Button onClick={handleSubmit} disabled={!mapping.domain && !mapping.companyName}>
                 Submit
               </Button>
             </div>

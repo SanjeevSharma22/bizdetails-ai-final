@@ -1,7 +1,6 @@
 import os
 import csv
 import uuid
-import random
 import re
 from io import StringIO
 
@@ -14,11 +13,12 @@ from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 import pycountry
 
 from .database import Base, engine, get_db
-from .models import User
+from .models import User, CompanyUpdated
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -65,32 +65,68 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
-# In‐memory store for demo
+# In-memory store for processed tasks
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
 
-def generate_mock_domain(company_name: str) -> str:
-    clean = "".join(ch for ch in company_name.lower() if ch.isalnum())
-    domains = [".com", ".io", ".co", ".net"]
-    return f"{clean}{random.choice(domains)}"
-
-def generate_mock_results(data: List[Dict[str, Optional[str]]]) -> List[ProcessedResult]:
+def enrich_domains(
+    data: List[Dict[str, Optional[str]]], db: Session
+) -> List[ProcessedResult]:
     results: List[ProcessedResult] = []
     for idx, row in enumerate(data, start=1):
-        name = row.get("Company Name") or f"Company {idx}"
-        results.append(
-            ProcessedResult(
-                id=idx,
-                companyName=name,
-                originalData=row,
-                domain=generate_mock_domain(name),
-                confidence=random.choice(["High", "Medium", "Low"]),
-                matchType=random.choice(["Exact", "Contextual", "Reverse", "Manual"]),
-                notes=None,
-                country=row.get("Country") or "US",
-                industry=row.get("Industry") or "Technology",
+        domain = (row.get("Domain") or "").lower()
+        company = None
+        if domain:
+            company = db.query(CompanyUpdated).filter(CompanyUpdated.domain == domain).first()
+        else:
+            name = (row.get("Company Name") or "").lower()
+            query = db.query(CompanyUpdated).filter(func.lower(CompanyUpdated.name) == name)
+            country = row.get("Country")
+            if country:
+                query = query.filter(CompanyUpdated.countries.any(country.upper()))
+            industry = row.get("Industry")
+            if industry:
+                query = query.filter(func.lower(CompanyUpdated.industry) == industry.lower())
+            subindustry = row.get("Subindustry")
+            if subindustry:
+                query = query.filter(func.lower(CompanyUpdated.subindustry) == subindustry.lower())
+            size = row.get("Company Size")
+            if size:
+                query = query.filter(func.lower(CompanyUpdated.size) == size.lower())
+            keywords = row.get("Keywords")
+            if keywords:
+                query = query.filter(CompanyUpdated.keywords_cntxt.any(keywords))
+            company = query.first()
+        if company:
+            country = company.countries[0] if company.countries else ""
+            results.append(
+                ProcessedResult(
+                    id=idx,
+                    companyName=company.name or "",
+                    originalData=row,
+                    domain=company.domain,
+                    confidence="High",
+                    matchType="Exact" if domain else "Company Name",
+                    notes=None,
+                    country=country,
+                    industry=company.industry or "",
+                )
             )
-        )
+        else:
+            missing_note = "Domain not found" if domain else "Company not found"
+            results.append(
+                ProcessedResult(
+                    id=idx,
+                    companyName="",
+                    originalData=row,
+                    domain=domain,
+                    confidence="Low",
+                    matchType="None",
+                    notes=missing_note,
+                    country="",
+                    industry="",
+                )
+            )
     return results
 
 
@@ -253,7 +289,7 @@ async def upload(file: UploadFile = File(...)):
     return {"headers": headers}
 
 @app.post("/api/process")
-async def process(req: ProcessRequest):
+async def process(req: ProcessRequest, db: Session = Depends(get_db)):
     rows = req.data
     if req.mapping:
         mapped_rows: List[Dict[str, Optional[str]]] = []
@@ -263,10 +299,17 @@ async def process(req: ProcessRequest):
                 mapped_row[field] = row.get(col)
             mapped_rows.append(mapped_row)
         rows = mapped_rows
+    for row in rows:
+        has_domain = (row.get("Domain") or "").strip()
+        has_name = (row.get("Company Name") or "").strip()
+        if not (has_domain or has_name):
+            raise HTTPException(
+                status_code=400, detail="Domain or Company Name is required"
+            )
 
-    processed = preprocess_rows(rows)
+    enriched = enrich_domains(rows, db)
     task_id = str(uuid.uuid4())
-    TASK_RESULTS[task_id] = generate_mock_results(processed)
+    TASK_RESULTS[task_id] = enriched
     return {"task_id": task_id}
 
 @app.get("/api/results")
