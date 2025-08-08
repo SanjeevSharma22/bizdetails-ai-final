@@ -18,6 +18,7 @@ import pycountry
 
 from .database import Base, engine, get_db
 from .models import User, CompanyUpdated
+from .normalization import normalize_company_name
 
 # --- DB bootstrap ---
 Base.metadata.create_all(bind=engine)
@@ -235,11 +236,6 @@ def enrich_domains(
     return results
 
 # --- Preprocessing helpers (optional) ---
-LEGAL_SUFFIXES = {
-    "inc", "inc.", "ltd", "ltd.", "pvt", "pvt.", "pvt ltd", "pvt. ltd",
-    "llc", "corp", "co", "co.", "gmbh", "sa", "s.a.", "ag", "plc", "limited",
-}
-
 INDUSTRY_TAXONOMY = {
     "technology": "Technology",
     "tech": "Technology",
@@ -247,21 +243,6 @@ INDUSTRY_TAXONOMY = {
     "financial services": "Finance",
     "healthcare": "Healthcare",
 }
-
-def strip_legal_suffixes(name: str) -> str:
-    tokens = name.split()
-    while tokens:
-        token = re.sub(r"[^a-z.]", "", tokens[-1])
-        if token in LEGAL_SUFFIXES:
-            tokens.pop()
-        else:
-            break
-    return " ".join(tokens)
-
-def normalize_company_name(name: str) -> str:
-    cleaned = name.strip().lower()
-    cleaned = strip_legal_suffixes(cleaned)
-    return cleaned
 
 def normalize_country(country: Optional[str]) -> Optional[str]:
     if not country:
@@ -301,7 +282,14 @@ def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Opti
         company_size = row.get("Company Size")
         keywords = row.get("Keywords")
 
-        identifier = (name, country, industry, subindustry, company_size, keywords)
+        identifier = (
+            name.lower(),
+            country,
+            industry,
+            subindustry,
+            company_size,
+            keywords,
+        )
         if identifier in seen:
             continue
         seen.add(identifier)
