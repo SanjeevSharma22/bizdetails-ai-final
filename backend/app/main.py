@@ -4,6 +4,7 @@ import uuid
 import re
 from io import StringIO
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -64,6 +65,41 @@ class ProcessedResult(BaseModel):
 # In-memory task store (MVP)
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
+# --- Normalization helpers ---
+
+def normalize_domain(domain: str) -> str:
+    """Return the root domain without protocol, www, or paths."""
+    if not domain:
+        return ""
+    domain = domain.strip().lower()
+    if not domain:
+        return ""
+    if not re.match(r"^https?://", domain):
+        domain = "http://" + domain
+    parsed = urlparse(domain)
+    host = parsed.netloc or parsed.path
+    if host.startswith("www."):
+        host = host[4:]
+    return host.split(":")[0]
+
+
+def extract_linkedin_slug(url: str) -> str:
+    """Isolate the company slug from a LinkedIn URL."""
+    if not url:
+        return ""
+    url = url.strip()
+    if not url:
+        return ""
+    if not re.match(r"^https?://", url):
+        url = "https://" + url
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    match = re.search(r"/company/([^/]+)/?", path)
+    if match:
+        return match.group(1)
+    # If no /company/ segment, assume provided slug
+    return path.strip("/")
+
 # --- Enrichment ---
 def enrich_domains(
     data: List[Dict[str, Optional[str]]], db: Session
@@ -71,7 +107,8 @@ def enrich_domains(
     results: List[ProcessedResult] = []
 
     for idx, row in enumerate(data, start=1):
-        domain = (row.get("Domain") or "").strip().lower()
+        domain = normalize_domain(row.get("Domain") or "")
+        linkedin_slug = extract_linkedin_slug(row.get("LinkedIn URL") or "")
         company = None
         match_type = "None"
         note = None
@@ -88,7 +125,22 @@ def enrich_domains(
             else:
                 note = "Domain not found"
 
-        # 2) Fallback: company-name match with optional filters
+        # 2) LinkedIn URL slug match
+        if not company and linkedin_slug:
+            candidates = (
+                db.query(CompanyUpdated)
+                .filter(CompanyUpdated.linkedin_url != None)
+                .all()
+            )
+            for c in candidates:
+                if extract_linkedin_slug(c.linkedin_url or "").lower() == linkedin_slug:
+                    company = c
+                    match_type = "LinkedIn URL" if not domain else "Domain+LinkedIn URL"
+                    break
+            if not company:
+                note = note or "LinkedIn URL not found"
+
+        # 3) Fallback: company-name match with optional filters
         if not company:
             name = (row.get("Company Name") or "").strip().lower()
             if name:
@@ -125,11 +177,20 @@ def enrich_domains(
 
                 company = query.first()
                 if company:
-                    match_type = "Company Name" if not domain else "Domain+Company Name"
+                    if domain:
+                        match_type = "Domain+Company Name"
+                    elif linkedin_slug:
+                        match_type = "LinkedIn URL+Company Name"
+                    else:
+                        match_type = "Company Name"
                 else:
                     note = note or "Company not found"
             else:
-                note = note or ("Domain not found" if domain else "Company not found")
+                note = note or (
+                    "Domain not found"
+                    if domain or linkedin_slug
+                    else "Company not found"
+                )
 
         if company:
             result_country = (
@@ -308,13 +369,15 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
             mapped_rows.append(mapped_row)
         rows = mapped_rows
 
-    # Require at least a domain OR company name per row
+    # Require at least a domain OR company name OR LinkedIn URL per row
     for row in rows:
         has_domain = (row.get("Domain") or "").strip()
         has_name = (row.get("Company Name") or "").strip()
-        if not (has_domain or has_name):
+        has_linkedin = (row.get("LinkedIn URL") or "").strip()
+        if not (has_domain or has_name or has_linkedin):
             raise HTTPException(
-                status_code=400, detail="Domain or Company Name is required"
+                status_code=400,
+                detail="Domain, Company Name, or LinkedIn URL is required",
             )
 
     enriched = enrich_domains(rows, db)

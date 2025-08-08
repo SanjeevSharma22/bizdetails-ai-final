@@ -8,6 +8,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
   const [mapping, setMapping] = useState({
     domain: '',
     companyName: '',
+    linkedinUrl: '',
     country: '',
     industry: '',
     subindustry: '',
@@ -16,13 +17,14 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
   });
 
   const handleSubmit = () => {
-    // Require at least a Domain or a Company Name mapping
-    if (!mapping.domain && !mapping.companyName) return;
+    // Require at least a Domain or Company Name or LinkedIn URL mapping
+    if (!mapping.domain && !mapping.companyName && !mapping.linkedinUrl) return;
 
     // Map UI keys -> backend canonical keys expected by the API
     const backendKeyMap = {
       domain: 'Domain',
       companyName: 'Company Name',
+      linkedinUrl: 'LinkedIn URL',
       country: 'Country',
       industry: 'Industry',
       subindustry: 'Subindustry',
@@ -46,27 +48,33 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
     setShowModal(false);
   };
 
-  const renderSelect = (label, key, required = false) => (
-    <div>
-      <label className="block text-sm font-medium mb-1">
-        {label}
-        {required && <span className="text-red-500">*</span>}
-      </label>
-      <select
-        value={mapping[key]}
-        onChange={(e) => setMapping({ ...mapping, [key]: e.target.value })}
-        className="w-full border rounded p-2"
-      >
-        <option value="">Select column</option>
-        {uploadedFile.columns.map((col) => (
-          <option key={col} value={col}>
-            {col}
-          </option>
-        ))}
-      </select>
-      {!required && <span className="text-xs text-gray-500">Optional</span>}
-    </div>
-  );
+  const renderSelect = (label, key, required = false) => {
+    const selected = Object.values(mapping).filter((v) => v && v !== mapping[key]);
+    const options = uploadedFile.columns.filter(
+      (col) => !selected.includes(col)
+    );
+    return (
+      <div>
+        <label className="block text-sm font-medium mb-1">
+          {label}
+          {required && <span className="text-red-500">*</span>}
+        </label>
+        <select
+          value={mapping[key]}
+          onChange={(e) => setMapping({ ...mapping, [key]: e.target.value })}
+          className="w-full border rounded p-2"
+        >
+          <option value="">Select column</option>
+          {options.map((col) => (
+            <option key={col} value={col}>
+              {col}
+            </option>
+          ))}
+        </select>
+        {!required && <span className="text-xs text-gray-500">Optional</span>}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -87,8 +95,9 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
               {renderSelect('Domain', 'domain')}
               {renderSelect('Company Name', 'companyName')}
+              {renderSelect('Company LinkedIn URL', 'linkedinUrl')}
               <p className="text-xs text-gray-500 -mt-2">
-                Domain <em>or</em> Company Name is required.
+                Domain, Company Name, or LinkedIn URL is required.
               </p>
               {renderSelect('Company Country', 'country')}
               {renderSelect('Company Industry', 'industry')}
@@ -102,7 +111,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
               </Button>
               <Button
                 onClick={handleSubmit}
-                disabled={!mapping.domain && !mapping.companyName}
+                disabled={!mapping.domain && !mapping.companyName && !mapping.linkedinUrl}
               >
                 Submit
               </Button>
