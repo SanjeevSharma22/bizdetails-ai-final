@@ -15,6 +15,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
 
   const handleSubmit = () => {
     if (!mapping.domain && !mapping.companyName) {
+      // You could surface a toast/error here if desired.
       return;
     }
     const mapped = uploadedFile.data.map((row) => {
@@ -71,9 +72,11 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
           <div className="bg-white p-6 rounded shadow-md w-full max-w-md space-y-4">
             <h2 className="text-lg font-semibold">Map Columns</h2>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              {renderSelect('Domain', 'domain', true)}
-              {renderSelect('Company Name', 'companyName', true)}
-              <p className="text-xs text-gray-500 -mt-2">Domain or Company Name is required.</p>
+              {renderSelect('Domain', 'domain')}
+              {renderSelect('Company Name', 'companyName')}
+              <p className="text-xs text-gray-500 -mt-2">
+                Domain <em>or</em> Company Name is required.
+              </p>
               {renderSelect('Company Country', 'country')}
               {renderSelect('Company Industry', 'industry')}
               {renderSelect('Company Subindustry', 'subindustry')}

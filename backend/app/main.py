@@ -73,47 +73,86 @@ def enrich_domains(
     data: List[Dict[str, Optional[str]]], db: Session
 ) -> List[ProcessedResult]:
     results: List[ProcessedResult] = []
+
     for idx, row in enumerate(data, start=1):
-        domain = (row.get("Domain") or "").lower()
+        domain = (row.get("Domain") or "").strip().lower()
         company = None
+        match_type = "None"
+        note = None
+
+        # 1) Try exact domain match first (case-insensitive)
         if domain:
-            company = db.query(CompanyUpdated).filter(CompanyUpdated.domain == domain).first()
-        else:
-            name = (row.get("Company Name") or "").lower()
-            query = db.query(CompanyUpdated).filter(func.lower(CompanyUpdated.name) == name)
-            country = row.get("Country")
-            if country:
-                query = query.filter(CompanyUpdated.countries.any(country.upper()))
-            industry = row.get("Industry")
-            if industry:
-                query = query.filter(func.lower(CompanyUpdated.industry) == industry.lower())
-            subindustry = row.get("Subindustry")
-            if subindustry:
-                query = query.filter(func.lower(CompanyUpdated.subindustry) == subindustry.lower())
-            size = row.get("Company Size")
-            if size:
-                query = query.filter(func.lower(CompanyUpdated.size) == size.lower())
-            keywords = row.get("Keywords")
-            if keywords:
-                query = query.filter(CompanyUpdated.keywords_cntxt.any(keywords))
-            company = query.first()
+            company = (
+                db.query(CompanyUpdated)
+                .filter(func.lower(CompanyUpdated.domain) == domain)
+                .first()
+            )
+            if company:
+                match_type = "Exact"
+            else:
+                note = "Domain not found"
+
+        # 2) Fallback: match by company name + optional filters
+        if not company:
+            name = (row.get("Company Name") or "").strip().lower()
+            if name:
+                query = db.query(CompanyUpdated).filter(
+                    func.lower(CompanyUpdated.name) == name
+                )
+
+                # Optional filters
+                country = (row.get("Country") or "").strip()
+                if country:
+                    # CompanyUpdated.countries is assumed to be an ARRAY of ISO codes
+                    query = query.filter(CompanyUpdated.countries.any(country.upper()))
+
+                industry = (row.get("Industry") or "").strip()
+                if industry:
+                    query = query.filter(
+                        func.lower(CompanyUpdated.industry) == industry.lower()
+                    )
+
+                subindustry = (row.get("Subindustry") or "").strip()
+                if subindustry:
+                    query = query.filter(
+                        func.lower(CompanyUpdated.subindustry) == subindustry.lower()
+                    )
+
+                size = (row.get("Company Size") or "").strip()
+                if size:
+                    query = query.filter(func.lower(CompanyUpdated.size) == size.lower())
+
+                keywords = (row.get("Keywords") or "").strip()
+                if keywords:
+                    # If your source is a comma-separated string, you may want to split and OR them.
+                    # For now we use a simple ANY check with the full string.
+                    query = query.filter(CompanyUpdated.keywords_cntxt.any(keywords))
+
+                company = query.first()
+                if company:
+                    match_type = "Company Name" if not domain else "Domain+Company Name"
+                else:
+                    note = note or "Company not found"
+            else:
+                # Neither domain matched nor name provided/matched
+                note = note or ("Domain not found" if domain else "Company not found")
+
         if company:
-            country = company.countries[0] if company.countries else ""
+            result_country = company.countries[0] if getattr(company, "countries", None) else ""
             results.append(
                 ProcessedResult(
                     id=idx,
                     companyName=company.name or "",
                     originalData=row,
-                    domain=company.domain,
+                    domain=company.domain or domain,
                     confidence="High",
-                    matchType="Exact" if domain else "Company Name",
+                    matchType=match_type,
                     notes=None,
-                    country=country,
+                    country=result_country,
                     industry=company.industry or "",
                 )
             )
         else:
-            missing_note = "Domain not found" if domain else "Company not found"
             results.append(
                 ProcessedResult(
                     id=idx,
@@ -122,11 +161,12 @@ def enrich_domains(
                     domain=domain,
                     confidence="Low",
                     matchType="None",
-                    notes=missing_note,
+                    notes=note or "Not found",
                     country="",
                     industry="",
                 )
             )
+
     return results
 
 
@@ -202,7 +242,7 @@ def normalize_industry(industry: Optional[str]) -> Optional[str]:
 
 def normalize_subindustry(subindustry: Optional[str]) -> Optional[str]:
     if not subindustry:
-        return None
+        return None    # replace with real taxonomy when available
     return INDUSTRY_TAXONOMY.get(subindustry.strip().lower())
 
 
@@ -299,6 +339,8 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
                 mapped_row[field] = row.get(col)
             mapped_rows.append(mapped_row)
         rows = mapped_rows
+
+    # Require at least a domain or company name for each row
     for row in rows:
         has_domain = (row.get("Domain") or "").strip()
         has_name = (row.get("Company Name") or "").strip()
@@ -314,7 +356,7 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/results")
 async def get_results(task_id: str):
-    return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
+    return {"results": [r.model_dump() for r in TASK_RESULTS.get(task_id, [])]}
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
