@@ -324,7 +324,8 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/results")
 async def get_results(task_id: str):
-    return {"results": [r.model_dump() for r in TASK_RESULTS.get(task_id, [])]}
+    """Return processed results for a given task id."""
+    return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
