@@ -102,38 +102,28 @@ export default function App() {
 
   const handleColumnMappingComplete = async (mappedData) => {
     setUploadStep('processing');
-    setTimeout(() => {
-      setProcessedResults(generateMockResults(mappedData));
+    try {
+      const res = await fetch(`${API}/api/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: mappedData }),
+      });
+      const { task_id } = await res.json();
+      const res2 = await fetch(`${API}/api/results?task_id=${task_id}`);
+      const { results } = await res2.json();
+      setProcessedResults(results);
       setActiveTab('results');
+    } catch (err) {
+      console.error(err);
+    } finally {
       setUploadStep('upload');
-    }, 2000);
+    }
   };
 
   const handleBackToUpload = () => {
     setUploadStep('upload');
     setUploadedFile(null);
   };
-
-  const generateMockDomain = (companyName) => {
-    const cleanName = companyName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const domains = ['.com', '.io', '.co', '.net'];
-    return `${cleanName}${domains[Math.floor(Math.random() * domains.length)]}`;
-  };
-
-  const generateMockResults = (data) =>
-    data.map((row, index) => ({
-      id: index + 1,
-      companyName: row['Company Name'] || `Company ${index + 1}`,
-      originalData: row,
-      domain: generateMockDomain(row['Company Name'] || `Company ${index + 1}`),
-      confidence: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
-      matchType: ['Exact', 'Contextual', 'Reverse', 'Manual'][
-        Math.floor(Math.random() * 4)
-      ],
-      notes: Math.random() > 0.7 ? 'Fuzzy match applied' : null,
-      country: row.Country || 'US',
-      industry: row.Industry || 'Technology',
-    }));
 
   const getUploadTabContent = () => {
     switch (uploadStep) {

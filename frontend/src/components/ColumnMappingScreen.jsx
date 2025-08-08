@@ -4,7 +4,8 @@ import { Button } from './ui/button';
 export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack }) {
   const [showModal, setShowModal] = useState(false);
   const [mapping, setMapping] = useState({
-    companyName: '',
+    domain: '',
+    'Company Name': '',
     country: '',
     industry: '',
     subindustry: '',
@@ -13,16 +14,31 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
   });
 
   const handleSubmit = () => {
+    if (!mapping.domain && !mapping['Company Name']) {
+      return;
+    }
+
+    const backendKeyMap = {
+      domain: 'Domain',
+      'Company Name': 'Company Name',
+      country: 'Country',
+      industry: 'Industry',
+      subindustry: 'Subindustry',
+      size: 'Company Size',
+      keywords: 'Keywords',
+    };
+
     const mapped = uploadedFile.data.map((row) => {
       const result = {};
-      if (mapping.companyName) result['Company Name'] = row[mapping.companyName];
-      if (mapping.country) result.Country = row[mapping.country];
-      if (mapping.industry) result.Industry = row[mapping.industry];
-      if (mapping.subindustry) result.Subindustry = row[mapping.subindustry];
-      if (mapping.size) result['Company Size'] = row[mapping.size];
-      if (mapping.keywords) result.Keywords = row[mapping.keywords];
+      Object.entries(mapping).forEach(([key, column]) => {
+        if (column) {
+          const backendKey = backendKeyMap[key] || key;
+          result[backendKey] = row[column];
+        }
+      });
       return result;
     });
+
     onMappingComplete(mapped);
     setShowModal(false);
   };
@@ -66,7 +82,9 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
           <div className="bg-white p-6 rounded shadow-md w-full max-w-md space-y-4">
             <h2 className="text-lg font-semibold">Map Columns</h2>
             <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-              {renderSelect('Company Name', 'companyName', true)}
+              {renderSelect('Domain', 'domain', true)}
+              {renderSelect('Company Name', 'Company Name', true)}
+              <p className="text-xs text-gray-500 -mt-2">Domain or Company Name is required.</p>
               {renderSelect('Company Country', 'country')}
               {renderSelect('Company Industry', 'industry')}
               {renderSelect('Company Subindustry', 'subindustry')}
@@ -77,7 +95,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
               <Button variant="outline" onClick={() => setShowModal(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={!mapping.companyName}>
+              <Button onClick={handleSubmit} disabled={!mapping.domain && !mapping['Company Name']}>
                 Submit
               </Button>
             </div>
