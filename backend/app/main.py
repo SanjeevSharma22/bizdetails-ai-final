@@ -13,6 +13,7 @@ from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 import pycountry
 
@@ -72,25 +73,82 @@ def enrich_domains(
     data: List[Dict[str, Optional[str]]], db: Session
 ) -> List[ProcessedResult]:
     results: List[ProcessedResult] = []
+
     for idx, row in enumerate(data, start=1):
-        domain = (row.get("Domain") or "").lower()
-        company = (
-            db.query(CompanyUpdated).filter(CompanyUpdated.domain == domain).first()
-        )
-        if company:
-            country = (
-                company.countries[0] if company.countries else ""
+        domain = (row.get("Domain") or "").strip().lower()
+        company = None
+        match_type = "None"
+        note = None
+
+        # 1) Try exact domain match first (case-insensitive)
+        if domain:
+            company = (
+                db.query(CompanyUpdated)
+                .filter(func.lower(CompanyUpdated.domain) == domain)
+                .first()
             )
+            if company:
+                match_type = "Exact"
+            else:
+                note = "Domain not found"
+
+        # 2) Fallback: match by company name + optional filters
+        if not company:
+            name = (row.get("Company Name") or "").strip().lower()
+            if name:
+                query = db.query(CompanyUpdated).filter(
+                    func.lower(CompanyUpdated.name) == name
+                )
+
+                # Optional filters
+                country = (row.get("Country") or "").strip()
+                if country:
+                    # CompanyUpdated.countries is assumed to be an ARRAY of ISO codes
+                    query = query.filter(CompanyUpdated.countries.any(country.upper()))
+
+                industry = (row.get("Industry") or "").strip()
+                if industry:
+                    query = query.filter(
+                        func.lower(CompanyUpdated.industry) == industry.lower()
+                    )
+
+                subindustry = (row.get("Subindustry") or "").strip()
+                if subindustry:
+                    query = query.filter(
+                        func.lower(CompanyUpdated.subindustry) == subindustry.lower()
+                    )
+
+                size = (row.get("Company Size") or "").strip()
+                if size:
+                    query = query.filter(func.lower(CompanyUpdated.size) == size.lower())
+
+                keywords = (row.get("Keywords") or "").strip()
+                if keywords:
+                    # If your source is a comma-separated string, you may want to split and OR them.
+                    # For now we use a simple ANY check with the full string.
+                    query = query.filter(CompanyUpdated.keywords_cntxt.any(keywords))
+
+                company = query.first()
+                if company:
+                    match_type = "Company Name" if not domain else "Domain+Company Name"
+                else:
+                    note = note or "Company not found"
+            else:
+                # Neither domain matched nor name provided/matched
+                note = note or ("Domain not found" if domain else "Company not found")
+
+        if company:
+            result_country = company.countries[0] if getattr(company, "countries", None) else ""
             results.append(
                 ProcessedResult(
                     id=idx,
                     companyName=company.name or "",
                     originalData=row,
-                    domain=company.domain,
+                    domain=company.domain or domain,
                     confidence="High",
-                    matchType="Exact",
+                    matchType=match_type,
                     notes=None,
-                    country=country,
+                    country=result_country,
                     industry=company.industry or "",
                 )
             )
@@ -103,11 +161,12 @@ def enrich_domains(
                     domain=domain,
                     confidence="Low",
                     matchType="None",
-                    notes="Domain not found",
+                    notes=note or "Not found",
                     country="",
                     industry="",
                 )
             )
+
     return results
 
 
@@ -183,7 +242,7 @@ def normalize_industry(industry: Optional[str]) -> Optional[str]:
 
 def normalize_subindustry(subindustry: Optional[str]) -> Optional[str]:
     if not subindustry:
-        return None
+        return None    # replace with real taxonomy when available
     return INDUSTRY_TAXONOMY.get(subindustry.strip().lower())
 
 
@@ -281,6 +340,15 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
             mapped_rows.append(mapped_row)
         rows = mapped_rows
 
+    # Require at least a domain or company name for each row
+    for row in rows:
+        has_domain = (row.get("Domain") or "").strip()
+        has_name = (row.get("Company Name") or "").strip()
+        if not (has_domain or has_name):
+            raise HTTPException(
+                status_code=400, detail="Domain or Company Name is required"
+            )
+
     enriched = enrich_domains(rows, db)
     task_id = str(uuid.uuid4())
     TASK_RESULTS[task_id] = enriched
@@ -288,7 +356,7 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
 
 @app.get("/api/results")
 async def get_results(task_id: str):
-    return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
+    return {"results": [r.model_dump() for r in TASK_RESULTS.get(task_id, [])]}
 
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
