@@ -56,6 +56,9 @@ class ProcessedResult(BaseModel):
     companyName: str
     originalData: Dict[str, Optional[str]]
     domain: str
+    hq: str
+    size: str
+    linkedin_url: str
     confidence: str
     matchType: str
     notes: Optional[str]
@@ -199,9 +202,12 @@ def enrich_domains(
             results.append(
                 ProcessedResult(
                     id=idx,
-                    companyName=company.name or "",
+                    companyName=company.name or (row.get("Company Name") or ""),
                     originalData=row,
                     domain=company.domain or domain,
+                    hq=company.hq or "",
+                    size=company.size or "",
+                    linkedin_url=company.linkedin_url or "",
                     confidence="High",
                     matchType=match_type,
                     notes=None,
@@ -213,14 +219,17 @@ def enrich_domains(
             results.append(
                 ProcessedResult(
                     id=idx,
-                    companyName="",
+                    companyName=row.get("Company Name") or "",
                     originalData=row,
                     domain=domain,
+                    hq=row.get("HQ") or "",
+                    size=row.get("Company Size") or row.get("Size") or "",
+                    linkedin_url=row.get("LinkedIn URL") or "",
                     confidence="Low",
                     matchType="None",
                     notes=note or "Not found",
-                    country="",
-                    industry="",
+                    country=row.get("Country") or "",
+                    industry=row.get("Industry") or "",
                 )
             )
     return results
