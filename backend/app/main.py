@@ -5,12 +5,14 @@ import re
 from io import StringIO
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
+from datetime import datetime
+from enum import Enum
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -44,6 +46,22 @@ def get_config():
     return Settings()
 
 # --- Schemas ---
+class UserRole(str, Enum):
+    SALES = "Sales"
+    MARKETING = "Marketing"
+    DATA_ANALYST = "Data Analyst"
+
+
+class UserSignup(BaseModel):
+    email: str
+    password: str
+    full_name: str = Field(..., alias="fullName")
+    role: UserRole
+
+    class Config:
+        allow_population_by_field_name = True
+
+
 class UserCredentials(BaseModel):
     email: str
     password: str
@@ -310,14 +328,19 @@ def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Opti
 # --- Auth Endpoints ---
 @app.post("/api/auth/signup")
 def signup(
-    credentials: UserCredentials,
+    credentials: UserSignup,
     db: Session = Depends(get_db),
     authorize: AuthJWT = Depends(),
 ):
     if db.query(User).filter(User.email == credentials.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
     hashed_password = pwd_context.hash(credentials.password)
-    user = User(email=credentials.email, hashed_password=hashed_password)
+    user = User(
+        email=credentials.email,
+        hashed_password=hashed_password,
+        full_name=credentials.full_name,
+        role=credentials.role.value,
+    )
     db.add(user)
     db.commit()
     access_token = authorize.create_access_token(subject=user.email)
@@ -332,6 +355,8 @@ def signin(
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+    user.last_login = datetime.utcnow()
+    db.commit()
     access_token = authorize.create_access_token(subject=user.email)
     return {"access_token": access_token}
 
@@ -354,7 +379,15 @@ async def upload(file: UploadFile = File(...)):
     return {"headers": headers}
 
 @app.post("/api/process")
-async def process(req: ProcessRequest, db: Session = Depends(get_db)):
+async def process(
+    req: ProcessRequest,
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    authorize.jwt_required()
+    current_user_email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == current_user_email).first()
+
     rows = req.data or []
 
     # Apply mapping from frontend (maps arbitrary column names to expected keys)
@@ -381,6 +414,9 @@ async def process(req: ProcessRequest, db: Session = Depends(get_db)):
     enriched = enrich_domains(rows, db)
     task_id = str(uuid.uuid4())
     TASK_RESULTS[task_id] = enriched
+    if user:
+        user.enrichment_count += 1
+        db.commit()
     return {"task_id": task_id}
 
 @app.get("/api/results")
