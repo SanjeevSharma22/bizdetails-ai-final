@@ -108,15 +108,22 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ data: mappedData }),
       });
+      if (!res.ok) {
+        throw new Error('Failed to process data');
+      }
       const { task_id } = await res.json();
       const res2 = await fetch(`${API}/api/results?task_id=${task_id}`);
+      if (!res2.ok) {
+        throw new Error('Failed to fetch results');
+      }
       const { results } = await res2.json();
       setProcessedResults(results);
       setActiveTab('results');
+      setUploadStep('upload');
     } catch (err) {
       console.error(err);
-    } finally {
-      setUploadStep('upload');
+      alert(err.message || 'An error occurred while processing your data.');
+      setUploadStep('mapping');
     }
   };
 
