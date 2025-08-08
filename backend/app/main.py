@@ -3,12 +3,10 @@ import csv
 import uuid
 import re
 from io import StringIO
-
 from typing import Dict, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
 from pydantic import BaseModel
@@ -20,22 +18,22 @@ import pycountry
 from .database import Base, engine, get_db
 from .models import User, CompanyUpdated
 
-# Create tables
+# --- DB bootstrap ---
 Base.metadata.create_all(bind=engine)
 
+# --- App ---
 app = FastAPI(title="BizDetails AI API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # tighten in prod
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Password hashing
+# --- Auth / Security ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT settings
 class Settings(BaseModel):
     authjwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "secret")
 
@@ -43,16 +41,14 @@ class Settings(BaseModel):
 def get_config():
     return Settings()
 
-
-# ---- Data models ----
-
+# --- Schemas ---
 class UserCredentials(BaseModel):
     email: str
     password: str
 
 class ProcessRequest(BaseModel):
     data: List[Dict[str, Optional[str]]]
-    mapping: Optional[Dict[str, str]] = None
+    mapping: Optional[Dict[str, str]] = None  # frontend maps to canonical headers
 
 class ProcessedResult(BaseModel):
     id: int
@@ -65,10 +61,10 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
-# In-memory store for processed tasks
+# In-memory task store (MVP)
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
-
+# --- Enrichment ---
 def enrich_domains(
     data: List[Dict[str, Optional[str]]], db: Session
 ) -> List[ProcessedResult]:
@@ -80,7 +76,7 @@ def enrich_domains(
         match_type = "None"
         note = None
 
-        # 1) Try exact domain match first (case-insensitive)
+        # 1) Exact domain match (case-insensitive)
         if domain:
             company = (
                 db.query(CompanyUpdated)
@@ -92,7 +88,7 @@ def enrich_domains(
             else:
                 note = "Domain not found"
 
-        # 2) Fallback: match by company name + optional filters
+        # 2) Fallback: company-name match with optional filters
         if not company:
             name = (row.get("Company Name") or "").strip().lower()
             if name:
@@ -100,10 +96,9 @@ def enrich_domains(
                     func.lower(CompanyUpdated.name) == name
                 )
 
-                # Optional filters
                 country = (row.get("Country") or "").strip()
                 if country:
-                    # CompanyUpdated.countries is assumed to be an ARRAY of ISO codes
+                    # CompanyUpdated.countries is expected to be ARRAY of ISO alpha-2 (e.g., "IN", "US")
                     query = query.filter(CompanyUpdated.countries.any(country.upper()))
 
                 industry = (row.get("Industry") or "").strip()
@@ -124,8 +119,8 @@ def enrich_domains(
 
                 keywords = (row.get("Keywords") or "").strip()
                 if keywords:
-                    # If your source is a comma-separated string, you may want to split and OR them.
-                    # For now we use a simple ANY check with the full string.
+                    # If your source is CSV of terms, split and OR them.
+                    # For now, simple ANY on the full string.
                     query = query.filter(CompanyUpdated.keywords_cntxt.any(keywords))
 
                 company = query.first()
@@ -134,11 +129,12 @@ def enrich_domains(
                 else:
                     note = note or "Company not found"
             else:
-                # Neither domain matched nor name provided/matched
                 note = note or ("Domain not found" if domain else "Company not found")
 
         if company:
-            result_country = company.countries[0] if getattr(company, "countries", None) else ""
+            result_country = (
+                company.countries[0] if getattr(company, "countries", None) else ""
+            )
             results.append(
                 ProcessedResult(
                     id=idx,
@@ -166,31 +162,12 @@ def enrich_domains(
                     industry="",
                 )
             )
-
     return results
 
-
-# ---- Preprocessing utilities ----
-
+# --- Preprocessing helpers (optional) ---
 LEGAL_SUFFIXES = {
-    "inc",
-    "inc.",
-    "ltd",
-    "ltd.",
-    "pvt",
-    "pvt.",
-    "pvt ltd",
-    "pvt. ltd",
-    "llc",
-    "corp",
-    "co",
-    "co.",
-    "gmbh",
-    "sa",
-    "s.a.",
-    "ag",
-    "plc",
-    "limited",
+    "inc", "inc.", "ltd", "ltd.", "pvt", "pvt.", "pvt ltd", "pvt. ltd",
+    "llc", "corp", "co", "co.", "gmbh", "sa", "s.a.", "ag", "plc", "limited",
 }
 
 INDUSTRY_TAXONOMY = {
@@ -200,7 +177,6 @@ INDUSTRY_TAXONOMY = {
     "financial services": "Finance",
     "healthcare": "Healthcare",
 }
-
 
 def strip_legal_suffixes(name: str) -> str:
     tokens = name.split()
@@ -212,12 +188,10 @@ def strip_legal_suffixes(name: str) -> str:
             break
     return " ".join(tokens)
 
-
 def normalize_company_name(name: str) -> str:
     cleaned = name.strip().lower()
     cleaned = strip_legal_suffixes(cleaned)
     return cleaned
-
 
 def normalize_country(country: Optional[str]) -> Optional[str]:
     if not country:
@@ -233,18 +207,15 @@ def normalize_country(country: Optional[str]) -> Optional[str]:
     except LookupError:
         return None
 
-
 def normalize_industry(industry: Optional[str]) -> Optional[str]:
     if not industry:
         return None
     return INDUSTRY_TAXONOMY.get(industry.strip().lower())
 
-
 def normalize_subindustry(subindustry: Optional[str]) -> Optional[str]:
     if not subindustry:
-        return None    # replace with real taxonomy when available
+        return None  # replace with real taxonomy when available
     return INDUSTRY_TAXONOMY.get(subindustry.strip().lower())
-
 
 def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
     cleaned: List[Dict[str, Optional[str]]] = []
@@ -275,11 +246,9 @@ def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Opti
                 "Keywords": keywords,
             }
         )
-
     return cleaned
 
-# ---- Auth endpoints ----
-
+# --- Auth Endpoints ---
 @app.post("/api/auth/signup")
 def signup(
     credentials: UserCredentials,
@@ -307,7 +276,6 @@ def signin(
     access_token = authorize.create_access_token(subject=user.email)
     return {"access_token": access_token}
 
-
 @app.get("/api/auth/verify")
 def verify_token(authorize: AuthJWT = Depends()):
     try:
@@ -317,30 +285,30 @@ def verify_token(authorize: AuthJWT = Depends()):
     current_user = authorize.get_jwt_subject()
     return {"email": current_user}
 
-
-# ---- Upload & processing ----
-
+# --- Upload & Processing ---
 @app.post("/api/upload")
 async def upload(file: UploadFile = File(...)):
-    content = await file.read()
-    text = content.decode("utf-8")
+    # utf-8-sig strips BOM if present
+    text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.reader(StringIO(text))
     headers = next(reader, [])
     return {"headers": headers}
 
 @app.post("/api/process")
 async def process(req: ProcessRequest, db: Session = Depends(get_db)):
-    rows = req.data
+    rows = req.data or []
+
+    # Apply mapping from frontend (maps arbitrary column names to expected keys)
     if req.mapping:
         mapped_rows: List[Dict[str, Optional[str]]] = []
         for row in rows:
-            mapped_row = {}
+            mapped_row: Dict[str, Optional[str]] = {}
             for field, col in req.mapping.items():
                 mapped_row[field] = row.get(col)
             mapped_rows.append(mapped_row)
         rows = mapped_rows
 
-    # Require at least a domain or company name for each row
+    # Require at least a domain OR company name per row
     for row in rows:
         has_domain = (row.get("Domain") or "").strip()
         has_name = (row.get("Company Name") or "").strip()
@@ -365,6 +333,7 @@ async def task_status(task_id: str):
 
 @app.get("/api/dashboard")
 async def dashboard():
+    # TODO: wire real stats
     return {"stats": {}}
 
 class ChatRequest(BaseModel):

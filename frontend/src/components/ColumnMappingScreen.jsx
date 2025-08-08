@@ -3,6 +3,8 @@ import { Button } from './ui/button';
 
 export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack }) {
   const [showModal, setShowModal] = useState(false);
+
+  // Local (UI) keys in camelCase; we'll translate to backend keys on submit
   const [mapping, setMapping] = useState({
     domain: '',
     companyName: '',
@@ -14,21 +16,32 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
   });
 
   const handleSubmit = () => {
-    if (!mapping.domain && !mapping.companyName) {
-      // You could surface a toast/error here if desired.
-      return;
-    }
+    // Require at least a Domain or a Company Name mapping
+    if (!mapping.domain && !mapping.companyName) return;
+
+    // Map UI keys -> backend canonical keys expected by the API
+    const backendKeyMap = {
+      domain: 'Domain',
+      companyName: 'Company Name',
+      country: 'Country',
+      industry: 'Industry',
+      subindustry: 'Subindustry',
+      size: 'Company Size',
+      keywords: 'Keywords',
+    };
+
+    // Build a new array with only the selected/renamed columns
     const mapped = uploadedFile.data.map((row) => {
       const result = {};
-      if (mapping.domain) result.Domain = row[mapping.domain];
-      if (mapping.companyName) result['Company Name'] = row[mapping.companyName];
-      if (mapping.country) result.Country = row[mapping.country];
-      if (mapping.industry) result.Industry = row[mapping.industry];
-      if (mapping.subindustry) result.Subindustry = row[mapping.subindustry];
-      if (mapping.size) result['Company Size'] = row[mapping.size];
-      if (mapping.keywords) result.Keywords = row[mapping.keywords];
+      Object.entries(mapping).forEach(([uiKey, srcCol]) => {
+        if (srcCol) {
+          const backendKey = backendKeyMap[uiKey] || uiKey;
+          result[backendKey] = row[srcCol];
+        }
+      });
       return result;
     });
+
     onMappingComplete(mapped);
     setShowModal(false);
   };
@@ -87,7 +100,10 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
               <Button variant="outline" onClick={() => setShowModal(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSubmit} disabled={!mapping.domain && !mapping.companyName}>
+              <Button
+                onClick={handleSubmit}
+                disabled={!mapping.domain && !mapping.companyName}
+              >
                 Submit
               </Button>
             </div>
