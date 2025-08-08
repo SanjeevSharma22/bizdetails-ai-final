@@ -113,6 +113,7 @@ def enrich_domains(
     for idx, row in enumerate(data, start=1):
         domain = normalize_domain(row.get("Domain") or "")
         linkedin_slug = extract_linkedin_slug(row.get("LinkedIn URL") or "")
+        original_name = row.get("Company Name") or ""
         company = None
         match_type = "None"
         note = None
@@ -146,7 +147,7 @@ def enrich_domains(
 
         # 3) Fallback: company-name match with optional filters
         if not company:
-            name = (row.get("Company Name") or "").strip().lower()
+            name = normalize_company_name(original_name).lower()
             if name:
                 query = db.query(CompanyUpdated).filter(
                     func.lower(CompanyUpdated.name) == name
@@ -203,7 +204,7 @@ def enrich_domains(
             results.append(
                 ProcessedResult(
                     id=idx,
-                    companyName=company.name or (row.get("Company Name") or ""),
+                    companyName=company.name or original_name,
                     originalData=row,
                     domain=company.domain or domain,
                     hq=company.hq or "",
@@ -220,7 +221,7 @@ def enrich_domains(
             results.append(
                 ProcessedResult(
                     id=idx,
-                    companyName=row.get("Company Name") or "",
+                    companyName=original_name,
                     originalData=row,
                     domain=domain,
                     hq=row.get("HQ") or "",
