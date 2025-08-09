@@ -105,7 +105,10 @@ export default function App() {
     try {
       const res = await fetch(`${API}/api/process`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(user?.token ? { Authorization: `Bearer ${user.token}` } : {}),
+        },
         body: JSON.stringify({ data: mappedData }),
       });
       if (!res.ok) {
