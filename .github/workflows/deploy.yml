@@ -42,7 +42,7 @@ jobs:
           protocol: ftp
           # local-dir must end with a trailing slash for FTP-Deploy-Action
           local-dir: frontend/dist/
-          server-dir: /public_html/
+          server-dir: .
           dangerous-clean-slate: false
           exclude: |
             **/.git*
