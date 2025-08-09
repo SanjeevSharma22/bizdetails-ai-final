@@ -9,6 +9,8 @@ export default function AdminApp() {
   const [token, setToken] = useState(null);
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState('');
+  const [mode, setMode] = useState('override');
+  const [errors, setErrors] = useState([]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -32,17 +34,21 @@ export default function AdminApp() {
 
   const handleUpload = async () => {
     if (!file) return;
-    setMessage('');
+    setMessage('Processing...');
+    setErrors([]);
     try {
       const form = new FormData();
       form.append('file', file);
+       form.append('mode', mode);
       const res = await fetch(`${API}/api/admin/company-updated/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
       if (res.ok) {
-        setMessage('Upload successful');
+        const data = await res.json();
+        setMessage(`Created ${data.created}, Updated ${data.updated}`);
+        setErrors(data.errors || []);
         setFile(null);
       } else {
         setMessage('Upload failed');
@@ -93,6 +99,26 @@ export default function AdminApp() {
           onChange={(e) => setFile(e.target.files[0])}
           className="w-full"
         />
+        <div className="flex flex-col items-start space-y-2 text-left">
+          <label className="flex items-center space-x-2">
+            <input
+              type="radio"
+              value="override"
+              checked={mode === 'override'}
+              onChange={() => setMode('override')}
+            />
+            <span>Override with new data</span>
+          </label>
+          <label className="flex items-center space-x-2">
+            <input
+              type="radio"
+              value="missing"
+              checked={mode === 'missing'}
+              onChange={() => setMode('missing')}
+            />
+            <span>Update only missing fields</span>
+          </label>
+        </div>
         <button
           onClick={handleUpload}
           className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50"
@@ -101,6 +127,18 @@ export default function AdminApp() {
           Upload
         </button>
         {message && <p className="text-sm text-center">{message}</p>}
+        {errors.length > 0 && (
+          <div className="text-left text-sm max-h-40 overflow-y-auto">
+            <p className="font-semibold">Errors:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              {errors.map((e, idx) => (
+                <li key={idx}>
+                  Row {e.row}: {e.error}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );

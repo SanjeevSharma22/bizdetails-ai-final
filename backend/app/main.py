@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from datetime import datetime
 
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
@@ -453,15 +453,27 @@ async def chat(req: ChatRequest):
 @app.post("/api/admin/company-updated/upload")
 async def admin_company_upload(
     file: UploadFile = File(...),
+    mode: str = Form(...),
     db: Session = Depends(get_db),
     authorize: AuthJWT = Depends(),
 ):
-    """Allow admins to bulk upsert CompanyUpdated records via CSV."""
+    """Allow admins to bulk upsert CompanyUpdated records via CSV.
+
+    ``mode`` controls how conflicts are resolved:
+
+    * ``override`` – Non-empty CSV values replace existing data.
+    * ``missing`` – Only populate fields that are empty in the DB.
+    """
+
     authorize.jwt_required()
     current_email = authorize.get_jwt_subject()
     user = db.query(User).filter(User.email == current_email).first()
     if not user or user.role.lower() != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
+
+    mode = mode.lower()
+    if mode not in {"override", "missing"}:
+        raise HTTPException(status_code=400, detail="Invalid mode")
 
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
@@ -475,6 +487,9 @@ async def admin_company_upload(
         "keywords_cntxt",
         "size",
         "linkedin_url",
+        "slug",
+        "original_name",
+        "legal_name",
     }
     headers = set(reader.fieldnames or [])
     missing = expected - headers
@@ -484,37 +499,76 @@ async def admin_company_upload(
             detail=f"Missing columns: {', '.join(sorted(missing))}",
         )
 
-    count = 0
-    for row in reader:
-        domain = (row.get("domain") or "").strip().lower()
-        if not domain:
-            continue
-        countries = [c.strip() for c in (row.get("countries") or "").split(",") if c.strip()]
-        keywords = [k.strip() for k in (row.get("keywords_cntxt") or "").split(",") if k.strip()]
-        entry = db.query(CompanyUpdated).filter(func.lower(CompanyUpdated.domain) == domain).first()
-        if entry:
-            entry.name = row.get("name")
-            entry.countries = countries or None
-            entry.hq = row.get("hq")
-            entry.industry = row.get("industry")
-            entry.subindustry = row.get("subindustry")
-            entry.keywords_cntxt = keywords or None
-            entry.size = row.get("size")
-            entry.linkedin_url = row.get("linkedin_url")
-        else:
-            entry = CompanyUpdated(
-                name=row.get("name"),
-                domain=domain,
-                countries=countries or None,
-                hq=row.get("hq"),
-                industry=row.get("industry"),
-                subindustry=row.get("subindustry"),
-                keywords_cntxt=keywords or None,
-                size=row.get("size"),
-                linkedin_url=row.get("linkedin_url"),
-            )
-            db.add(entry)
-        count += 1
+    created = 0
+    updated = 0
+    errors = []
 
-    db.commit()
-    return {"rows_processed": count}
+    for idx, row in enumerate(reader, start=1):
+        try:
+            domain = (row.get("domain") or "").strip().lower()
+            if not domain:
+                raise ValueError("Invalid domain provided")
+
+            linkedin_url = (row.get("linkedin_url") or "").strip()
+            if linkedin_url:
+                parsed = urlparse(linkedin_url if re.match(r"^https?://", linkedin_url) else "https://" + linkedin_url)
+                if not parsed.netloc:
+                    raise ValueError("Malformed LinkedIn URL")
+
+            def clean(val):
+                return (val or "").strip() or None
+
+            countries = [
+                c.strip() for c in (row.get("countries") or "").split(",") if c.strip()
+            ]
+            keywords = [
+                k.strip() for k in (row.get("keywords_cntxt") or "").split(",") if k.strip()
+            ]
+            data_fields = {
+                "name": clean(row.get("name")),
+                "countries": countries or None,
+                "hq": clean(row.get("hq")),
+                "industry": clean(row.get("industry")),
+                "subindustry": clean(row.get("subindustry")),
+                "keywords_cntxt": keywords or None,
+                "size": clean(row.get("size")),
+                "linkedin_url": clean(linkedin_url),
+                "slug": clean(row.get("slug")),
+                "original_name": clean(row.get("original_name")),
+                "legal_name": clean(row.get("legal_name")),
+            }
+
+            entry = (
+                db.query(CompanyUpdated)
+                .filter(func.lower(CompanyUpdated.domain) == domain)
+                .first()
+            )
+
+            if entry:
+                changed = False
+                for field, value in data_fields.items():
+                    if mode == "override":
+                        if value not in (None, "", []):
+                            setattr(entry, field, value)
+                            changed = True
+                    else:  # mode == 'missing'
+                        current = getattr(entry, field)
+                        is_empty = current in (None, "", []) or (
+                            isinstance(current, list) and len(current) == 0
+                        )
+                        if is_empty and value not in (None, "", []):
+                            setattr(entry, field, value)
+                            changed = True
+                if changed:
+                    updated += 1
+            else:
+                entry = CompanyUpdated(domain=domain, **data_fields)
+                db.add(entry)
+                created += 1
+
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            errors.append({"row": idx, "error": str(e)})
+
+    return {"created": created, "updated": updated, "errors": errors}
