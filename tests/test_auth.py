@@ -1,0 +1,79 @@
+import importlib
+import os
+import sys
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+
+def setup_app(tmp_path):
+    db_path = tmp_path / "test.db"
+    db_url = f"sqlite:///{db_path}"
+
+    engine = create_engine(db_url)
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, email VARCHAR NOT NULL UNIQUE, hashed_password VARCHAR NOT NULL)"
+            )
+        )
+
+    os.environ["DATABASE_URL"] = db_url
+
+    database = importlib.import_module("backend.app.database")
+    models = importlib.import_module("backend.app.models")
+
+    def create_only_users(bind=None, **kwargs):
+        models.User.__table__.create(bind=bind or database.engine, checkfirst=True)
+
+    database.Base.metadata.create_all = create_only_users
+
+    main = importlib.import_module("backend.app.main")
+
+    return main.app, database, models
+
+
+def test_signup_and_tracking(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    # Sign up a new user
+    resp = client.post(
+        "/api/auth/signup",
+        json={
+            "email": "user@example.com",
+            "password": "secret",
+            "fullName": "Test User",
+            "role": "Sales",
+        },
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="user@example.com").first()
+    assert user.full_name == "Test User"
+    assert user.role == "Sales"
+    assert user.enrichment_count == 0
+    assert user.account_status == "Active"
+    assert user.last_login is None
+
+    # Sign in to update last_login
+    resp = client.post(
+        "/api/auth/signin",
+        json={"email": "user@example.com", "password": "secret"},
+    )
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.last_login is not None
+
+    # Process a request to increment enrichment_count
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = client.post("/api/process", json={"data": []}, headers=headers)
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.enrichment_count == 1
+    db.close()
