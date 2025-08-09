@@ -477,9 +477,9 @@ async def admin_company_upload(
 
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
-    expected = {
+    required = {"domain"}
+    _optional = {
         "name",
-        "domain",
         "countries",
         "hq",
         "industry",
@@ -492,11 +492,11 @@ async def admin_company_upload(
         "legal_name",
     }
     headers = set(reader.fieldnames or [])
-    missing = expected - headers
-    if missing:
+    missing_required = required - headers
+    if missing_required:
         raise HTTPException(
             status_code=400,
-            detail=f"Missing columns: {', '.join(sorted(missing))}",
+            detail=f"Missing columns: {', '.join(sorted(missing_required))}",
         )
 
     created = 0
