@@ -20,7 +20,10 @@ import { ChatPanel } from './components/ChatPanel';
 import { ComplianceBanner } from './components/ComplianceBanner';
 import { LandingPage } from './components/LandingPage';
 
-const API = import.meta.env.VITE_API_BASE;
+// Allow the app to work even if VITE_API_BASE isn't configured by falling back
+// to relative URLs. This prevents "Failed to fetch" network errors when the
+// environment variable is missing and the resulting URL would be invalid.
+const API = import.meta.env.VITE_API_BASE || '';
 
 export default function App() {
   const [user, setUser] = useState(null);

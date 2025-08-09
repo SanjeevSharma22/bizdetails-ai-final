@@ -1,7 +1,9 @@
 import React from 'react';
 
 export function UploadScreen({ onFileUploaded }) {
-  const API = import.meta.env.VITE_API_BASE;
+  // Fallback to relative path when VITE_API_BASE isn't provided to avoid
+  // "Failed to fetch" errors due to an undefined base URL.
+  const API = import.meta.env.VITE_API_BASE || '';
 
   const handleChange = async (e) => {
     const file = e.target.files[0];

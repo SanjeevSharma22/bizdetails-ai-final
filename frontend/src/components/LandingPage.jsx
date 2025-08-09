@@ -12,7 +12,9 @@ export function LandingPage({ onSignIn }) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSignup, setIsSignup] = useState(false);
   const [errors, setErrors] = useState({});
-  const API = import.meta.env.VITE_API_BASE;
+  // Use relative URLs if VITE_API_BASE isn't defined so the landing page can
+  // communicate with the backend without throwing a network error.
+  const API = import.meta.env.VITE_API_BASE || '';
 
   const validate = (field, value) => {
     let message = "";
