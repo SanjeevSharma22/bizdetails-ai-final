@@ -448,3 +448,73 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     return {"response": "Chat endpoint not implemented."}
+
+
+@app.post("/api/admin/company-updated/upload")
+async def admin_company_upload(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    """Allow admins to bulk upsert CompanyUpdated records via CSV."""
+    authorize.jwt_required()
+    current_email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == current_email).first()
+    if not user or user.role.lower() != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    text = (await file.read()).decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(StringIO(text))
+    expected = {
+        "name",
+        "domain",
+        "countries",
+        "hq",
+        "industry",
+        "subindustry",
+        "keywords_cntxt",
+        "size",
+        "linkedin_url",
+    }
+    headers = set(reader.fieldnames or [])
+    missing = expected - headers
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing columns: {', '.join(sorted(missing))}",
+        )
+
+    count = 0
+    for row in reader:
+        domain = (row.get("domain") or "").strip().lower()
+        if not domain:
+            continue
+        countries = [c.strip() for c in (row.get("countries") or "").split(",") if c.strip()]
+        keywords = [k.strip() for k in (row.get("keywords_cntxt") or "").split(",") if k.strip()]
+        entry = db.query(CompanyUpdated).filter(func.lower(CompanyUpdated.domain) == domain).first()
+        if entry:
+            entry.name = row.get("name")
+            entry.countries = countries or None
+            entry.hq = row.get("hq")
+            entry.industry = row.get("industry")
+            entry.subindustry = row.get("subindustry")
+            entry.keywords_cntxt = keywords or None
+            entry.size = row.get("size")
+            entry.linkedin_url = row.get("linkedin_url")
+        else:
+            entry = CompanyUpdated(
+                name=row.get("name"),
+                domain=domain,
+                countries=countries or None,
+                hq=row.get("hq"),
+                industry=row.get("industry"),
+                subindustry=row.get("subindustry"),
+                keywords_cntxt=keywords or None,
+                size=row.get("size"),
+                linkedin_url=row.get("linkedin_url"),
+            )
+            db.add(entry)
+        count += 1
+
+    db.commit()
+    return {"rows_processed": count}
