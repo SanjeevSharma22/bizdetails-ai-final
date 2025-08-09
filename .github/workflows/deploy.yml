@@ -40,7 +40,8 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT }}           # 21
           protocol: ftp
-          local-dir: frontend/dist
+          # local-dir must end with a trailing slash for FTP-Deploy-Action
+          local-dir: frontend/dist/
           server-dir: /public_html
           dangerous-clean-slate: false
           exclude: |
