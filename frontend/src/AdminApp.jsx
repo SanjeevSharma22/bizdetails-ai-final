@@ -11,6 +11,8 @@ export default function AdminApp() {
   const [message, setMessage] = useState('');
   const [mode, setMode] = useState('override');
   const [errors, setErrors] = useState([]);
+  const [headers, setHeaders] = useState([]);
+  const [columnMap, setColumnMap] = useState({});
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -32,6 +34,40 @@ export default function AdminApp() {
     }
   };
 
+  const FIELDS = [
+    'domain',
+    'name',
+    'countries',
+    'hq',
+    'industry',
+    'subindustry',
+    'keywords_cntxt',
+    'size',
+    'linkedin_url',
+    'slug',
+    'original_name',
+    'legal_name',
+  ];
+
+  const handleFileChange = async (e) => {
+    const f = e.target.files[0];
+    setFile(f);
+    setMessage('');
+    setHeaders([]);
+    setColumnMap({});
+    if (f) {
+      const text = await f.text();
+      const firstLine = text.split(/\r?\n/)[0] || '';
+      const cols = firstLine.split(',').map((c) => c.trim()).filter(Boolean);
+      setHeaders(cols);
+      const initial = {};
+      FIELDS.forEach((field) => {
+        if (cols.includes(field)) initial[field] = field;
+      });
+      setColumnMap(initial);
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setMessage('Processing...');
@@ -39,7 +75,14 @@ export default function AdminApp() {
     try {
       const form = new FormData();
       form.append('file', file);
-       form.append('mode', mode);
+      form.append('mode', mode);
+      const mapped = {};
+      Object.entries(columnMap).forEach(([field, col]) => {
+        if (col && col !== field) mapped[field] = col;
+      });
+      if (Object.keys(mapped).length > 0) {
+        form.append('column_map', JSON.stringify(mapped));
+      }
       const res = await fetch(`${API}/api/admin/company-updated/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -50,6 +93,8 @@ export default function AdminApp() {
         setMessage(`Created ${data.created}, Updated ${data.updated}`);
         setErrors(data.errors || []);
         setFile(null);
+        setHeaders([]);
+        setColumnMap({});
       } else {
         setMessage('Upload failed');
       }
@@ -96,9 +141,33 @@ export default function AdminApp() {
         <input
           type="file"
           accept=".csv"
-          onChange={(e) => setFile(e.target.files[0])}
+          onChange={handleFileChange}
           className="w-full"
         />
+        {headers.length > 0 && (
+          <div className="text-left space-y-2">
+            <p className="font-semibold">Match columns</p>
+            {FIELDS.map((field) => (
+              <div key={field} className="flex items-center space-x-2">
+                <label className="w-32 capitalize">{field}</label>
+                <select
+                  className="flex-1 border px-2 py-1"
+                  value={columnMap[field] || ''}
+                  onChange={(e) =>
+                    setColumnMap({ ...columnMap, [field]: e.target.value })
+                  }
+                >
+                  <option value="">--</option>
+                  {headers.map((h) => (
+                    <option key={h} value={h}>
+                      {h}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="flex flex-col items-start space-y-2 text-left">
           <label className="flex items-center space-x-2">
             <input

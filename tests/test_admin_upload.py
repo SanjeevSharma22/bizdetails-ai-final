@@ -130,3 +130,25 @@ def test_upload_with_missing_optional_columns(tmp_path):
     assert resp.status_code == 200
     row = _fetch_company(database.engine, "example.com")
     assert row["name"] is None
+
+
+def test_column_mapping_allows_custom_headers(tmp_path):
+    app, database, _ = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("DELETE FROM company_updated"))
+    client = TestClient(app)
+    headers = _signup_admin(client)
+
+    csv_content = "Company,Website\nAcme Corp,acme.com\n"
+    files = {"file": ("data.csv", csv_content, "text/csv")}
+    data = {
+        "mode": "override",
+        "column_map": '{"name":"Company","domain":"Website"}',
+    }
+    resp = client.post(
+        "/api/admin/company-updated/upload", headers=headers, files=files, data=data
+    )
+    assert resp.status_code == 200
+    row = _fetch_company(database.engine, "acme.com")
+    assert row["name"] == "Acme Corp"
