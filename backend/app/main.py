@@ -2,6 +2,7 @@ import os
 import csv
 import uuid
 import re
+import json
 from io import StringIO
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
@@ -454,6 +455,7 @@ async def chat(req: ChatRequest):
 async def admin_company_upload(
     file: UploadFile = File(...),
     mode: str = Form(...),
+    column_map: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     authorize: AuthJWT = Depends(),
 ):
@@ -477,6 +479,12 @@ async def admin_company_upload(
 
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
+    mapping = {}
+    if column_map:
+        try:
+            mapping = json.loads(column_map)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid column_map")
     required = {"domain"}
     _optional = {
         "name",
@@ -492,7 +500,11 @@ async def admin_company_upload(
         "legal_name",
     }
     headers = set(reader.fieldnames or [])
-    missing_required = required - headers
+    missing_required = {
+        field
+        for field in required
+        if mapping.get(field, field) not in headers
+    }
     if missing_required:
         raise HTTPException(
             status_code=400,
@@ -505,11 +517,14 @@ async def admin_company_upload(
 
     for idx, row in enumerate(reader, start=1):
         try:
-            domain = (row.get("domain") or "").strip().lower()
+            def get(field: str):
+                return row.get(mapping.get(field, field))
+
+            domain = (get("domain") or "").strip().lower()
             if not domain:
                 raise ValueError("Invalid domain provided")
 
-            linkedin_url = (row.get("linkedin_url") or "").strip()
+            linkedin_url = (get("linkedin_url") or "").strip()
             if linkedin_url:
                 parsed = urlparse(linkedin_url if re.match(r"^https?://", linkedin_url) else "https://" + linkedin_url)
                 if not parsed.netloc:
@@ -519,23 +534,23 @@ async def admin_company_upload(
                 return (val or "").strip() or None
 
             countries = [
-                c.strip() for c in (row.get("countries") or "").split(",") if c.strip()
+                c.strip() for c in (get("countries") or "").split(",") if c.strip()
             ]
             keywords = [
-                k.strip() for k in (row.get("keywords_cntxt") or "").split(",") if k.strip()
+                k.strip() for k in (get("keywords_cntxt") or "").split(",") if k.strip()
             ]
             data_fields = {
-                "name": clean(row.get("name")),
+                "name": clean(get("name")),
                 "countries": countries or None,
-                "hq": clean(row.get("hq")),
-                "industry": clean(row.get("industry")),
-                "subindustry": clean(row.get("subindustry")),
+                "hq": clean(get("hq")),
+                "industry": clean(get("industry")),
+                "subindustry": clean(get("subindustry")),
                 "keywords_cntxt": keywords or None,
-                "size": clean(row.get("size")),
+                "size": clean(get("size")),
                 "linkedin_url": clean(linkedin_url),
-                "slug": clean(row.get("slug")),
-                "original_name": clean(row.get("original_name")),
-                "legal_name": clean(row.get("legal_name")),
+                "slug": clean(get("slug")),
+                "original_name": clean(get("original_name")),
+                "legal_name": clean(get("legal_name")),
             }
 
             entry = (
