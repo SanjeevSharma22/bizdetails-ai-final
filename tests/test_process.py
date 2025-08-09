@@ -51,3 +51,31 @@ def test_process_skips_rows_missing_identifiers(tmp_path):
     assert len(results) == 1
     assert results[0]["originalData"]["Domain"] == "example.com"
 
+
+def test_process_requires_token(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={"email": "auth@example.com", "password": "secret", "fullName": "Auth"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="auth@example.com").first()
+    assert user.enrichment_count == 0
+
+    resp = client.post("/api/process", json={"data": []})
+    assert resp.status_code == 401
+    db.refresh(user)
+    assert user.enrichment_count == 0
+
+    headers = {"Authorization": f"Bearer {token}"}
+    resp = client.post("/api/process", json={"data": []}, headers=headers)
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.enrichment_count == 1
+    db.close()
+
