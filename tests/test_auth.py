@@ -98,3 +98,24 @@ def test_signup_accepts_name_field(tmp_path):
     user = db.query(models.User).filter_by(email="user2@example.com").first()
     assert user.full_name == "Alt Name"
     db.close()
+
+
+def test_signup_without_role_defaults(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={
+            "email": "norole@example.com",
+            "password": "secret",
+            "fullName": "No Role",
+        },
+    )
+    assert resp.status_code == 200
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="norole@example.com").first()
+    assert user.full_name == "No Role"
+    assert user.role == "User"
+    db.close()

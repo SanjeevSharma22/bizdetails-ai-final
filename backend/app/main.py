@@ -6,7 +6,6 @@ from io import StringIO
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from datetime import datetime
-from enum import Enum
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,17 +46,11 @@ def get_config():
     return Settings()
 
 # --- Schemas ---
-class UserRole(str, Enum):
-    SALES = "Sales"
-    MARKETING = "Marketing"
-    DATA_ANALYST = "Data Analyst"
-
-
 class UserSignup(BaseModel):
     email: str
     password: str
     full_name: str = Field(..., alias="fullName")
-    role: UserRole
+    role: Optional[str] = None
 
     @root_validator(pre=True)
     def populate_fullname(cls, values):
@@ -347,7 +340,7 @@ def signup(
         email=credentials.email,
         hashed_password=hashed_password,
         full_name=credentials.full_name,
-        role=credentials.role.value,
+        role=credentials.role or "User",
     )
     db.add(user)
     db.commit()
