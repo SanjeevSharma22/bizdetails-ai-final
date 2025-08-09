@@ -29,3 +29,6 @@ class CompanyUpdated(Base):
     keywords_cntxt = Column(ARRAY(String))
     size = Column(String)
     linkedin_url = Column(String)
+    slug = Column(String)
+    original_name = Column(String)
+    legal_name = Column(String)
