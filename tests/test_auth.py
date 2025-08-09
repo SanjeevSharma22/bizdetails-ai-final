@@ -77,3 +77,24 @@ def test_signup_and_tracking(tmp_path):
     db.refresh(user)
     assert user.enrichment_count == 1
     db.close()
+
+
+def test_signup_accepts_name_field(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={
+            "email": "user2@example.com",
+            "password": "secret",
+            "name": "Alt Name",
+            "role": "Marketing",
+        },
+    )
+    assert resp.status_code == 200
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="user2@example.com").first()
+    assert user.full_name == "Alt Name"
+    db.close()
