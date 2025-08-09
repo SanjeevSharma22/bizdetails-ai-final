@@ -401,16 +401,16 @@ async def process(
             mapped_rows.append(mapped_row)
         rows = mapped_rows
 
-    # Require at least a domain OR company name OR LinkedIn URL per row
+    # Filter out rows missing key identifiers rather than failing the request
+    filtered_rows: List[Dict[str, Optional[str]]] = []
     for row in rows:
         has_domain = (row.get("Domain") or "").strip()
         has_name = (row.get("Company Name") or "").strip()
         has_linkedin = (row.get("LinkedIn URL") or "").strip()
         if not (has_domain or has_name or has_linkedin):
-            raise HTTPException(
-                status_code=400,
-                detail="Domain, Company Name, or LinkedIn URL is required",
-            )
+            continue
+        filtered_rows.append(row)
+    rows = filtered_rows
 
     enriched = enrich_domains(rows, db)
     task_id = str(uuid.uuid4())
