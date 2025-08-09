@@ -12,7 +12,7 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi_jwt_auth import AuthJWT
 from passlib.context import CryptContext
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -58,6 +58,13 @@ class UserSignup(BaseModel):
     password: str
     full_name: str = Field(..., alias="fullName")
     role: UserRole
+
+    @root_validator(pre=True)
+    def populate_fullname(cls, values):
+        # Accept "name" as an alternative to "fullName" from clients
+        if "fullName" not in values and "name" in values:
+            values["fullName"] = values["name"]
+        return values
 
     class Config:
         allow_population_by_field_name = True
