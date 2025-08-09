@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 
 export function UploadScreen({ onFileUploaded }) {
   // Fallback to relative path when VITE_API_BASE isn't provided to avoid
   // "Failed to fetch" errors due to an undefined base URL.
   const API = import.meta.env.VITE_API_BASE || '';
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleFileSelect = () => inputRef.current?.click();
 
   const handleChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setUploading(true);
+    setProgress(10);
 
     // 1. Send file to backend to extract headers
     const formData = new FormData();
@@ -16,7 +23,8 @@ export function UploadScreen({ onFileUploaded }) {
       method: 'POST',
       body: formData,
     });
-    const { headers } = await response.json();  // e.g. ["Company Name", "Country", ...]
+    setProgress(60);
+    const { headers } = await response.json(); // e.g. ["Company Name", "Country", ...]
 
     // 2. Read file text and split into rows
     const text = await file.text();
@@ -32,13 +40,36 @@ export function UploadScreen({ onFileUploaded }) {
       return row;
     });
 
+    setProgress(100);
+    setTimeout(() => setUploading(false), 300);
     // 4. Notify parent with the raw file, parsed rows, and header list
     onFileUploaded({ file, data, columns: headers });
   };
 
   return (
-    <div className="p-8 border-2 border-dashed rounded text-center">
-      <input type="file" accept=".csv" onChange={handleChange} />
+    <div className="p-8 border border-green-500 rounded bg-gray-900 text-center text-green-400">
+      <p className="mb-4">Upload a .csv file with a Domain or Company Name column.</p>
+      <button
+        onClick={handleFileSelect}
+        className="px-4 py-2 bg-black border border-green-500 rounded hover:bg-gray-800"
+      >
+        Upload CSV
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv"
+        onChange={handleChange}
+        className="hidden"
+      />
+      {uploading && (
+        <div className="mt-4 w-full bg-gray-800 h-2 rounded">
+          <div
+            className="h-full bg-green-500 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
     </div>
   );
 }

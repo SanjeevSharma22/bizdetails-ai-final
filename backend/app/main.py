@@ -93,6 +93,18 @@ class ProcessedResult(BaseModel):
     country: str
     industry: str
 
+# Response schema for dashboard company listings
+class CompanyOut(BaseModel):
+    id: int
+    name: Optional[str]
+    domain: str
+    hq: Optional[str]
+    industry: Optional[str]
+    linkedin_url: Optional[str]
+
+    class Config:
+        orm_mode = True
+
 # In-memory task store (MVP)
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
 
@@ -433,10 +445,27 @@ async def get_results(task_id: str):
     """Return processed results for a given task id."""
     return {"results": [r.dict() for r in TASK_RESULTS.get(task_id, [])]}
 
+
+class SaveResultsRequest(BaseModel):
+    results: List[ProcessedResult]
+
+
+@app.post("/api/save_results")
+async def save_results(req: SaveResultsRequest):
+    """Persist enriched results for the user's account (placeholder)."""
+    TASK_RESULTS.setdefault("saved", []).extend(req.results)
+    return {"saved": len(req.results)}
+
 @app.get("/api/results/{task_id}/status")
 async def task_status(task_id: str):
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
+
+@app.get("/api/company_updated")
+def list_company_updated(db: Session = Depends(get_db)):
+    """Return all CompanyUpdated records for the dashboard."""
+    companies = db.query(CompanyUpdated).all()
+    return {"companies": [CompanyOut.from_orm(c).dict() for c in companies]}
 
 @app.get("/api/dashboard")
 async def dashboard():

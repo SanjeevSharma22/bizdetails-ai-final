@@ -34,6 +34,7 @@ export default function App() {
   const [showCompliance, setShowCompliance] = useState(true);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [processedResults, setProcessedResults] = useState(null);
+  const [progress, setProgress] = useState(0);
 
   const isTokenExpired = (token) => {
     try {
@@ -105,6 +106,7 @@ export default function App() {
 
   const handleColumnMappingComplete = async (mappedData) => {
     setUploadStep('processing');
+    setProgress(0);
     try {
       const res = await fetch(`${API}/api/process`, {
         method: 'POST',
@@ -118,14 +120,32 @@ export default function App() {
         throw new Error('Failed to process data');
       }
       const { task_id } = await res.json();
-      const res2 = await fetch(`${API}/api/results?task_id=${task_id}`);
-      if (!res2.ok) {
-        throw new Error('Failed to fetch results');
-      }
-      const { results } = await res2.json();
-      setProcessedResults(results);
-      setActiveTab('results');
-      setUploadStep('upload');
+      let done = false;
+      const interval = setInterval(async () => {
+        setProgress((p) => (p < 90 ? p + 10 : p));
+        const statusRes = await fetch(`${API}/api/results/${task_id}/status`);
+        const { status } = await statusRes.json();
+        if (status === 'completed') {
+          clearInterval(interval);
+          setProgress(100);
+          const res2 = await fetch(`${API}/api/results?task_id=${task_id}`);
+          if (!res2.ok) {
+            throw new Error('Failed to fetch results');
+          }
+          const { results } = await res2.json();
+          setProcessedResults(results);
+          setActiveTab('results');
+          setUploadStep('upload');
+          done = true;
+        }
+      }, 500);
+      // Safety timeout in case status never completes
+      setTimeout(() => {
+        if (!done) {
+          clearInterval(interval);
+          setProgress(100);
+        }
+      }, 10000);
     } catch (err) {
       console.error(err);
       alert(err.message || 'An error occurred while processing your data.');
@@ -150,14 +170,14 @@ export default function App() {
         );
       case 'processing':
         return (
-          <div className="flex items-center justify-center py-24">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                <Database className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl mb-2">Processing Your Data</h3>
-              <p className="text-gray-500">Mapping companies to domains using AI...</p>
+          <div className="flex flex-col items-center justify-center py-24 space-y-4">
+            <div className="w-64 bg-gray-800 h-2 rounded">
+              <div
+                className="h-full bg-green-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
             </div>
+            <p className="text-green-400">{progress}%</p>
           </div>
         );
       default:
@@ -178,17 +198,17 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-black text-green-400 font-mono">
       {showCompliance && <ComplianceBanner onDismiss={() => setShowCompliance(false)} />}
-      <header className="bg-white border-b border-blue-100 shadow-sm">
+      <header className="bg-gray-900 border-b border-green-500 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <Database className="w-5 h-5 text-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                <Database className="w-5 h-5 text-black" />
               </div>
-              <h1 className="text-xl text-gray-900">BizDetails AI</h1>
-              <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+              <h1 className="text-xl">BizDetails AI</h1>
+              <Badge variant="secondary" className="bg-gray-800 text-green-400">
                 AI-Powered
               </Badge>
             </div>
@@ -197,15 +217,20 @@ export default function App() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowChat(!showChat)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-green-500 text-green-400"
               >
                 <MessageCircle className="w-4 h-4" />
                 AI Assistant
               </Button>
               <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-gray-500" />
-                <span className="text-sm text-gray-700">{user.name}</span>
-                <Button variant="ghost" size="sm" onClick={handleSignOut} className="text-gray-500 hover:text-gray-700">
+                <User className="w-4 h-4" />
+                <span className="text-sm">{user.name}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="text-green-400 hover:text-green-200"
+                >
                   <LogOut className="w-4 h-4" />
                 </Button>
               </div>
