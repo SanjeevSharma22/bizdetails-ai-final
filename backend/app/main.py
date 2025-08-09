@@ -18,12 +18,13 @@ from sqlalchemy import func
 
 import pycountry
 
-from .database import Base, engine, get_db
+from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
 from .normalization import normalize_company_name
 
 # --- DB bootstrap ---
 Base.metadata.create_all(bind=engine)
+init_db()
 
 # --- App ---
 app = FastAPI(title="BizDetails AI API")
