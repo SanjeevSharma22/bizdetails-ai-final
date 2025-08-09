@@ -111,3 +111,22 @@ def test_missing_mode_only_fills_empty(tmp_path):
     assert row["name"] == "OldCo"  # existing name preserved
     assert row["hq"] == "NewHQ"  # hq was empty -> filled
     assert row["size"] == "50"  # existing value kept despite CSV
+
+
+def test_upload_with_missing_optional_columns(tmp_path):
+    app, database, _ = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("DELETE FROM company_updated"))
+    client = TestClient(app)
+    headers = _signup_admin(client)
+
+    csv_content = "domain\nexample.com\n"
+    files = {"file": ("data.csv", csv_content, "text/csv")}
+    data = {"mode": "override"}
+    resp = client.post(
+        "/api/admin/company-updated/upload", headers=headers, files=files, data=data
+    )
+    assert resp.status_code == 200
+    row = _fetch_company(database.engine, "example.com")
+    assert row["name"] is None
