@@ -1,5 +1,8 @@
 import React from 'react';
 
+const formatLinkedInUrl = (url) =>
+  /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
 export function CompanyDetailsPanel({ company, onClose }) {
   return (
     <div
@@ -34,7 +37,7 @@ export function CompanyDetailsPanel({ company, onClose }) {
             <strong>LinkedIn:</strong>{' '}
             {company.linkedin_url ? (
               <a
-                href={company.linkedin_url}
+                href={formatLinkedInUrl(company.linkedin_url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-400 hover:underline"

@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { CompanyDetailsPanel } from './CompanyDetailsPanel';
+import React, { useEffect, useState } from "react";
+import { CompanyDetailsPanel } from "./CompanyDetailsPanel";
 
-const API = import.meta.env.VITE_API_BASE || '';
+const API = import.meta.env.VITE_API_BASE || "";
 
 export function CompanyTable() {
   const [companies, setCompanies] = useState([]);
-  const [search, setSearch] = useState('');
-  const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
+  const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
@@ -15,29 +18,32 @@ export function CompanyTable() {
       .then((data) => setCompanies(data.companies || []));
   }, []);
 
+  const formatLinkedInUrl = (url) =>
+    /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
   const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
     }
     setSortConfig({ key, direction });
   };
 
   const sorted = [...companies].sort((a, b) => {
-    const valA = a[sortConfig.key] || '';
-    const valB = b[sortConfig.key] || '';
-    if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+    const valA = a[sortConfig.key] || "";
+    const valB = b[sortConfig.key] || "";
+    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
     return 0;
   });
 
   const filtered = sorted.filter((c) => {
     const term = search.toLowerCase();
     return (
-      (c.name || '').toLowerCase().includes(term) ||
-      (c.domain || '').toLowerCase().includes(term) ||
-      (c.industry || '').toLowerCase().includes(term) ||
-      (c.hq || '').toLowerCase().includes(term)
+      (c.name || "").toLowerCase().includes(term) ||
+      (c.domain || "").toLowerCase().includes(term) ||
+      (c.industry || "").toLowerCase().includes(term) ||
+      (c.hq || "").toLowerCase().includes(term)
     );
   });
 
@@ -56,25 +62,25 @@ export function CompanyTable() {
             <tr>
               <th
                 className="px-4 py-2 border border-green-500 cursor-pointer"
-                onClick={() => handleSort('name')}
+                onClick={() => handleSort("name")}
               >
                 Company Name
               </th>
               <th
                 className="px-4 py-2 border border-green-500 cursor-pointer"
-                onClick={() => handleSort('domain')}
+                onClick={() => handleSort("domain")}
               >
                 Domain
               </th>
               <th
                 className="px-4 py-2 border border-green-500 cursor-pointer"
-                onClick={() => handleSort('hq')}
+                onClick={() => handleSort("hq")}
               >
                 Headquarters
               </th>
               <th
                 className="px-4 py-2 border border-green-500 cursor-pointer"
-                onClick={() => handleSort('industry')}
+                onClick={() => handleSort("industry")}
               >
                 Industry
               </th>
@@ -88,22 +94,31 @@ export function CompanyTable() {
                 className="hover:bg-gray-800 transition-colors cursor-pointer"
                 onClick={() => setSelected(c)}
               >
-                <td className="px-4 py-2 border border-green-500">{c.name || 'N/A'}</td>
-                <td className="px-4 py-2 border border-green-500">{c.domain}</td>
-                <td className="px-4 py-2 border border-green-500">{c.hq || 'N/A'}</td>
-                <td className="px-4 py-2 border border-green-500">{c.industry || 'N/A'}</td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.name || "N/A"}
+                </td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.domain}
+                </td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.hq || "N/A"}
+                </td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.industry || "N/A"}
+                </td>
                 <td className="px-4 py-2 border border-green-500 text-center">
                   {c.linkedin_url ? (
                     <a
-                      href={c.linkedin_url}
+                      href={formatLinkedInUrl(c.linkedin_url)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       className="text-blue-400 hover:underline"
                     >
                       Link
                     </a>
                   ) : (
-                    'N/A'
+                    "N/A"
                   )}
                 </td>
               </tr>
@@ -111,7 +126,10 @@ export function CompanyTable() {
           </tbody>
         </table>
       </div>
-      <CompanyDetailsPanel company={selected} onClose={() => setSelected(null)} />
+      <CompanyDetailsPanel
+        company={selected}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 }

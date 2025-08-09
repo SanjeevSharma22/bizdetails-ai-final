@@ -1,43 +1,48 @@
-import React from 'react';
+import React from "react";
 
-const API = import.meta.env.VITE_API_BASE || '';
+const API = import.meta.env.VITE_API_BASE || "";
 
 export function ResultsView({ results }) {
   if (!results) {
     return <p>No results available.</p>;
   }
 
+  const formatLinkedInUrl = (url) =>
+    /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
   const downloadCSV = () => {
     const headers = [
-      'Company Name',
-      'Website',
-      'Headquarters',
-      'Industry',
-      'Employee Size',
-      'Company LinkedIn',
+      "Company Name",
+      "Website",
+      "Headquarters",
+      "Industry",
+      "Employee Size",
+      "Company LinkedIn",
     ];
     const rows = results.map((r) => [
       r.companyName,
       r.domain,
-      r.hq || 'N/A',
-      r.industry || 'N/A',
-      r.size || 'N/A',
-      r.linkedin_url || 'N/A',
+      r.hq || "N/A",
+      r.industry || "N/A",
+      r.size || "N/A",
+      formatLinkedInUrl(r.linkedin_url) || "N/A",
     ]);
-    const csv = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join(
+      "\n",
+    );
+    const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'enriched.csv';
+    a.download = "enriched.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const saveResults = async () => {
     await fetch(`${API}/api/save_results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ results }),
     });
   };
@@ -74,10 +79,27 @@ export function ResultsView({ results }) {
             <tr key={r.id} className="hover:bg-gray-800">
               <td className="border border-green-500 px-2">{r.companyName}</td>
               <td className="border border-green-500 px-2">{r.domain}</td>
-              <td className="border border-green-500 px-2">{r.hq || 'N/A'}</td>
-              <td className="border border-green-500 px-2">{r.industry || 'N/A'}</td>
-              <td className="border border-green-500 px-2">{r.size || 'N/A'}</td>
-              <td className="border border-green-500 px-2">{r.linkedin_url || 'N/A'}</td>
+              <td className="border border-green-500 px-2">{r.hq || "N/A"}</td>
+              <td className="border border-green-500 px-2">
+                {r.industry || "N/A"}
+              </td>
+              <td className="border border-green-500 px-2">
+                {r.size || "N/A"}
+              </td>
+              <td className="border border-green-500 px-2">
+                {r.linkedin_url ? (
+                  <a
+                    href={formatLinkedInUrl(r.linkedin_url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    Link
+                  </a>
+                ) : (
+                  "N/A"
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
