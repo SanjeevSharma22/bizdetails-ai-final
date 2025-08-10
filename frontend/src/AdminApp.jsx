@@ -96,10 +96,19 @@ export default function AdminApp() {
         setHeaders([]);
         setColumnMap({});
       } else {
-        setMessage('Upload failed');
+        let msg = 'Upload failed';
+        try {
+          const data = await res.json();
+          msg = data.detail || data.message || msg;
+          if (data.errors) setErrors(data.errors);
+        } catch (_) {
+          const text = await res.text();
+          if (text) msg = text;
+        }
+        setMessage(msg);
       }
     } catch (err) {
-      setMessage('Upload error');
+      setMessage(`Upload error: ${err.message}`);
     }
   };
 
