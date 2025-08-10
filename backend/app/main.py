@@ -16,7 +16,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 import pycountry
 
@@ -505,6 +505,16 @@ async def admin_company_upload(
     mode = mode.lower()
     if mode not in {"override", "missing"}:
         raise HTTPException(status_code=400, detail="Invalid mode")
+
+    # Ensure the primary key sequence is aligned (especially for PostgreSQL)
+    if db.bind.dialect.name == "postgresql":
+        db.execute(
+            text(
+                "SELECT setval(pg_get_serial_sequence('company_updated','id'), "
+                "COALESCE((SELECT MAX(id) FROM company_updated), 0) + 1, false)"
+            )
+        )
+        db.commit()
 
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
