@@ -5,9 +5,34 @@ export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e) => {
+  // Allow the component to work without an explicit VITE_API_BASE by
+  // falling back to relative URLs so the frontend can communicate with the
+  // backend in development environments where the variable isn't set.
+  const API = import.meta.env.VITE_API_BASE || "";
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSignIn({ email, name: email, token: "demo" });
+    try {
+      // First try to sign in. If that fails (e.g. user doesn't exist),
+      // automatically attempt to sign them up.
+      let res = await fetch(`${API}/api/auth/signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API}/api/auth/signup`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password, fullName: email }),
+        });
+        if (!res.ok) throw new Error("Auth failed");
+      }
+      const { access_token } = await res.json();
+      onSignIn({ email, name: email, token: access_token });
+    } catch (err) {
+      alert("Failed to sign in. Please try again.");
+    }
   };
 
   const tags = [

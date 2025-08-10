@@ -52,6 +52,10 @@ def init_db():
                 col["name"] for col in inspector.get_columns("company_updated")
             }
 
+            if "slug" not in company_columns:
+                conn.execute(
+                    text("ALTER TABLE company_updated ADD COLUMN slug VARCHAR")
+                )
             if "original_name" not in company_columns:
                 conn.execute(
                     text(

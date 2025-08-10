@@ -20,7 +20,10 @@ def test_process_skips_rows_missing_identifiers(tmp_path):
                     subindustry VARCHAR,
                     keywords_cntxt VARCHAR,
                     size VARCHAR,
-                    linkedin_url VARCHAR
+                    linkedin_url VARCHAR,
+                    slug VARCHAR,
+                    original_name VARCHAR,
+                    legal_name VARCHAR
                 )
                 """
             )
