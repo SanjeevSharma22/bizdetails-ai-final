@@ -10,7 +10,7 @@ def _create_company_table(engine):
             text(
                 """
                 CREATE TABLE IF NOT EXISTS company_updated (
-                    id INTEGER PRIMARY KEY,
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name VARCHAR,
                     domain VARCHAR UNIQUE,
                     countries VARCHAR,
@@ -152,3 +152,32 @@ def test_column_mapping_allows_custom_headers(tmp_path):
     assert resp.status_code == 200
     row = _fetch_company(database.engine, "acme.com")
     assert row["name"] == "Acme Corp"
+
+
+def test_upload_resets_autoincrement(tmp_path):
+    app, database, _ = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("DELETE FROM company_updated"))
+        # Insert a row with a manual ID to desync the autoincrement sequence
+        conn.execute(
+            text(
+                "INSERT INTO company_updated (id, name, domain) VALUES (1, 'Existing', 'existing.com')"
+            )
+        )
+        # Reset the sqlite sequence to force the next insert to reuse ID=1
+        conn.execute(text("UPDATE sqlite_sequence SET seq=0 WHERE name='company_updated'"))
+
+    client = TestClient(app)
+    headers = _signup_admin(client)
+    csv_content = "domain\nnew.com\n"
+    files = {"file": ("data.csv", csv_content, "text/csv")}
+    data = {"mode": "override"}
+    resp = client.post(
+        "/api/admin/company-updated/upload", headers=headers, files=files, data=data
+    )
+    assert resp.status_code == 200
+
+    with database.engine.begin() as conn:
+        rows = conn.execute(text("SELECT id, domain FROM company_updated ORDER BY id")).fetchall()
+    assert [tuple(r) for r in rows] == [(1, "existing.com"), (2, "new.com")]
