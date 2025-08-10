@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { Database, Globe, Brain, Building2, Check } from "lucide-react";
 
 export function LandingPage({ onSignIn }) {
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSignIn({ email, name: fullName || email, token: "demo" });
+    onSignIn({ email, name: email, token: "demo" });
   };
 
   const tags = [
@@ -17,6 +17,37 @@ export function LandingPage({ onSignIn }) {
     "Competitive Intelligence",
     "Account-Based Marketing",
     "CRM Data Enhancement",
+  ];
+
+  const features = [
+    {
+      icon: Database,
+      color: "text-blue-600",
+      title: "Precise Domain Mapping",
+      description:
+        "AI-powered matching of company names to their verified business websites with 95%+ accuracy.",
+    },
+    {
+      icon: Brain,
+      color: "text-purple-600",
+      title: "Context-Aware Intelligence",
+      description:
+        "Leverages industry, location, and company details for intelligent data enhancement.",
+    },
+    {
+      icon: Globe,
+      color: "text-blue-600",
+      title: "Global Data Enrichment",
+      description:
+        "Identify regional domains, subsidiaries, and international business presence.",
+    },
+    {
+      icon: Building2,
+      color: "text-purple-600",
+      title: "Complete Business Profiles",
+      description:
+        "Build comprehensive company profiles with verified domains and business details.",
+    },
   ];
 
   return (
@@ -47,34 +78,24 @@ export function LandingPage({ onSignIn }) {
               Powered by Advanced AI
             </span>
             <h2 className="text-4xl font-bold mb-4">
-              Enrich Your Business Data with{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">
-                AI
-              </span>{" "}
+              Enrich Your Business Data with{' '}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">AI</span>{' '}
               Precision
             </h2>
             <p className="text-gray-700 mb-6">
-              Transform incomplete company data into comprehensive business
-              intelligence.
+              Transform incomplete company data into comprehensive business intelligence. Map domains, validate details, and enrich your database with AI-powered accuracy.
             </p>
-            <ul className="space-y-4 mb-8">
-              <li className="flex items-center space-x-3">
-                <Globe className="w-5 h-5 text-blue-600" />
-                <span>Precise Domain Mapping</span>
-              </li>
-              <li className="flex items-center space-x-3">
-                <Database className="w-5 h-5 text-purple-600" />
-                <span>Global Data Enrichment</span>
-              </li>
-              <li className="flex items-center space-x-3">
-                <Brain className="w-5 h-5 text-blue-600" />
-                <span>Context-Aware Intelligence</span>
-              </li>
-              <li className="flex items-center space-x-3">
-                <Building2 className="w-5 h-5 text-purple-600" />
-                <span>Complete Business Profiles</span>
-              </li>
-            </ul>
+            <div className="grid sm:grid-cols-2 gap-6 mb-8">
+              {features.map((f) => (
+                <div key={f.title} className="flex items-start space-x-3">
+                  <f.icon className={`w-5 h-5 ${f.color} mt-1`} />
+                  <div>
+                    <h4 className="font-semibold">{f.title}</h4>
+                    <p className="text-sm text-gray-600">{f.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div>
               <h3 className="font-semibold mb-2">Perfect for:</h3>
               <div className="flex flex-wrap gap-2">
@@ -94,20 +115,10 @@ export function LandingPage({ onSignIn }) {
             onSubmit={handleSubmit}
             className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md mx-auto"
           >
-            <h2 className="text-2xl font-semibold mb-2 text-center">
-              Get Started
+            <h2 className="text-xl font-semibold mb-6 text-center">
+              Get Started – Access the most comprehensive business data enrichment platform
             </h2>
-            <p className="text-gray-600 mb-6 text-center">
-              Create your free account in seconds.
-            </p>
             <div className="space-y-4">
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Full Name"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
               <input
                 type="email"
                 value={email}
@@ -115,25 +126,32 @@ export function LandingPage({ onSignIn }) {
                 placeholder="Email Address"
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
               <button
                 type="submit"
-                className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition"
+                className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition shadow"
               >
-                Start Enriching Data →
+                Login
               </button>
+              <p className="text-sm text-center">
+                Don't have an account? <a href="#" className="text-blue-600 hover:underline">Sign up</a>
+              </p>
             </div>
             <ul className="mt-6 space-y-1 text-sm text-gray-600">
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" />
-                GDPR & CCPA Compliant
+                <Check className="w-4 h-4 text-green-500 mr-2" /> GDPR & CCPA Compliant
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" />
-                Enterprise-Grade Security
+                <Check className="w-4 h-4 text-green-500 mr-2" /> Enterprise-Grade Security
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" />
-                No Credit Card Required
+                <Check className="w-4 h-4 text-green-500 mr-2" /> No Credit Card Required
               </li>
             </ul>
           </form>
@@ -142,3 +160,4 @@ export function LandingPage({ onSignIn }) {
     </div>
   );
 }
+
