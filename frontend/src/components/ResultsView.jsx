@@ -7,6 +7,9 @@ export function ResultsView({ results }) {
     return <p>No results available.</p>;
   }
 
+  const formatLinkedInUrl = (url) =>
+    /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
   const downloadCSV = () => {
     const headers = [
       "Company Name",
@@ -22,7 +25,7 @@ export function ResultsView({ results }) {
       r.hq || "N/A",
       r.industry || "N/A",
       r.size || "N/A",
-      r.linkedin_url || "N/A",
+      formatLinkedInUrl(r.linkedin_url) || "N/A",
     ]);
     const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join(
       "\n",
@@ -86,7 +89,7 @@ export function ResultsView({ results }) {
               <td className="border border-green-500 px-2">
                 {r.linkedin_url ? (
                   <a
-                    href={r.linkedin_url}
+                    href={formatLinkedInUrl(r.linkedin_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-400 hover:underline"

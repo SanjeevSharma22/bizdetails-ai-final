@@ -18,6 +18,9 @@ export function CompanyTable() {
       .then((data) => setCompanies(data.companies || []));
   }, []);
 
+  const formatLinkedInUrl = (url) =>
+    /^https?:\/\//i.test(url) ? url : `https://${url}`;
+
   const handleSort = (key) => {
     let direction = "asc";
     if (sortConfig.key === key && sortConfig.direction === "asc") {
@@ -106,7 +109,7 @@ export function CompanyTable() {
                 <td className="px-4 py-2 border border-green-500 text-center">
                   {c.linkedin_url ? (
                     <a
-                      href={c.linkedin_url}
+                      href={formatLinkedInUrl(c.linkedin_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
