@@ -1,6 +1,7 @@
 import os
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker, declarative_base
+from passlib.context import CryptContext
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -68,3 +69,23 @@ def init_db():
                         "ALTER TABLE company_updated ADD COLUMN legal_name VARCHAR"
                     )
                 )
+
+    # Seed a default admin user if none exists
+    from .models import User  # Import here to avoid circular dependency
+
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    db = SessionLocal()
+    try:
+        admin_email = "admin"
+        exists = db.query(User).filter(User.email == admin_email).first()
+        if not exists:
+            admin_user = User(
+                email=admin_email,
+                hashed_password=pwd_context.hash("admin@123#"),
+                full_name="Admin",
+                role="Admin",
+            )
+            db.add(admin_user)
+            db.commit()
+    finally:
+        db.close()
