@@ -518,12 +518,23 @@ async def admin_company_upload(
 
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
+
+    # Normalize CSV headers by stripping whitespace and lowering case
+    raw_headers = reader.fieldnames or []
+    normalized_headers = [h.strip().lower() for h in raw_headers if h is not None]
+    reader.fieldnames = normalized_headers
+
     mapping = {}
     if column_map:
         try:
             mapping = json.loads(column_map)
         except Exception:
             raise HTTPException(status_code=400, detail="Invalid column_map")
+        # Normalize mapping to match sanitized headers
+        mapping = {
+            k.lower(): v.strip().lower() for k, v in mapping.items() if isinstance(v, str)
+        }
+
     required = {"domain"}
     _optional = {
         "name",
@@ -538,7 +549,8 @@ async def admin_company_upload(
         "original_name",
         "legal_name",
     }
-    headers = set(reader.fieldnames or [])
+
+    headers = set(normalized_headers)
     missing_required = {
         field
         for field in required

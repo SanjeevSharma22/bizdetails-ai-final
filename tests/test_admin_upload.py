@@ -181,3 +181,27 @@ def test_upload_resets_autoincrement(tmp_path):
     with database.engine.begin() as conn:
         rows = conn.execute(text("SELECT id, domain FROM company_updated ORDER BY id")).fetchall()
     assert [tuple(r) for r in rows] == [(1, "existing.com"), (2, "new.com")]
+
+
+def test_upload_handles_header_whitespace(tmp_path):
+    app, database, _ = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("DELETE FROM company_updated"))
+    client = TestClient(app)
+    headers = _signup_admin(client)
+
+    # Headers include extra spaces and mixed case
+    csv_content = "CompanyName ,Website ,country\nAcme Corp,acme.com,US\n"
+    files = {"file": ("data.csv", csv_content, "text/csv")}
+    data = {
+        "mode": "override",
+        "column_map": '{"name":"CompanyName ","domain":"Website ","hq":"country"}',
+    }
+    resp = client.post(
+        "/api/admin/company-updated/upload", headers=headers, files=files, data=data
+    )
+    assert resp.status_code == 200
+    row = _fetch_company(database.engine, "acme.com")
+    assert row["name"] == "Acme Corp"
+    assert row["hq"] == "US"
