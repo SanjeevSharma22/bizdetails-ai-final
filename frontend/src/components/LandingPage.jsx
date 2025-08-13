@@ -124,12 +124,16 @@ export function LandingPage({ onSignIn }) {
               Powered by Advanced AI
             </span>
             <h2 className="text-4xl font-bold mb-4">
-              Enrich Your Business Data with{' '}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">AI</span>{' '}
+              Enrich Your Business Data with{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-600">
+                AI
+              </span>{" "}
               Precision
             </h2>
             <p className="text-gray-700 mb-6">
-              Transform incomplete company data into comprehensive business intelligence. Map domains, validate details, and enrich your database with AI-powered accuracy.
+              Transform incomplete company data into comprehensive business
+              intelligence. Map domains, validate details, and enrich your
+              database with AI-powered accuracy.
             </p>
             <div className="grid sm:grid-cols-2 gap-6 mb-8">
               {features.map((f) => (
@@ -162,7 +166,8 @@ export function LandingPage({ onSignIn }) {
             className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md mx-auto"
           >
             <h2 className="text-xl font-semibold mb-6 text-center">
-              Get Started – Access the most comprehensive business data enrichment platform
+              Get Started – Access the most comprehensive business data
+              enrichment platform
             </h2>
             <div className="space-y-4">
               <input
@@ -188,7 +193,7 @@ export function LandingPage({ onSignIn }) {
               <p className="text-sm text-center">
                 {isSignUp ? (
                   <>
-                    Already have an account?{' '}
+                    Already have an account?{" "}
                     <button
                       type="button"
                       onClick={() => {
@@ -202,7 +207,7 @@ export function LandingPage({ onSignIn }) {
                   </>
                 ) : (
                   <>
-                    Don't have an account?{' '}
+                    Don't have an account?{" "}
                     <button
                       type="button"
                       onClick={() => {
@@ -219,13 +224,16 @@ export function LandingPage({ onSignIn }) {
             </div>
             <ul className="mt-6 space-y-1 text-sm text-gray-600">
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> GDPR & CCPA Compliant
+                <Check className="w-4 h-4 text-green-500 mr-2" /> GDPR & CCPA
+                Compliant
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> Enterprise-Grade Security
+                <Check className="w-4 h-4 text-green-500 mr-2" /> Enterprise-Grade
+                Security
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> No Credit Card Required
+                <Check className="w-4 h-4 text-green-500 mr-2" /> No Credit Card
+                Required
               </li>
             </ul>
           </form>
@@ -234,4 +242,3 @@ export function LandingPage({ onSignIn }) {
     </div>
   );
 }
-
