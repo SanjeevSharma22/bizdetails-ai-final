@@ -42,6 +42,7 @@ def _signup_admin(client):
     payload = {
         "email": "admin@example.com",
         "password": "secret",
+        "username": "adminuser",
         "fullName": "Admin",
         "role": "Admin",
     }

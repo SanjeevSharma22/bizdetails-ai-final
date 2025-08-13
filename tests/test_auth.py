@@ -46,6 +46,7 @@ def test_signup_and_tracking(tmp_path):
         json={
             "email": "user@example.com",
             "password": "secret",
+            "username": "testuser",
             "fullName": "Test User",
             "role": "Sales",
         },
@@ -56,6 +57,7 @@ def test_signup_and_tracking(tmp_path):
     db = database.SessionLocal()
     user = db.query(models.User).filter_by(email="user@example.com").first()
     assert user.full_name == "Test User"
+    assert user.username == "testuser"
     assert user.role == "Sales"
     assert user.enrichment_count == 0
     assert user.account_status == "Active"
@@ -137,5 +139,6 @@ def test_signup_without_fullname_defaults_to_email(tmp_path):
     db = database.SessionLocal()
     user = db.query(models.User).filter_by(email="noname@example.com").first()
     assert user.full_name == "noname@example.com"
+    assert user.username == "noname@example.com"
     assert user.role == "User"
     db.close()

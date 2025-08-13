@@ -4,6 +4,8 @@ import { Database, Globe, Brain, Building2, Check } from "lucide-react";
 export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [role, setRole] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
 
   // Keep the URL hash in sync so navigating to `#signup` opens the sign-up form
@@ -29,7 +31,13 @@ export function LandingPage({ onSignIn }) {
         res = await fetch(`${API}/api/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password, fullName: email }),
+          body: JSON.stringify({
+            email,
+            password,
+            username,
+            role,
+            fullName: username || email,
+          }),
         });
         if (!res.ok) throw new Error("Auth failed");
       } else {
@@ -50,7 +58,7 @@ export function LandingPage({ onSignIn }) {
         }
       }
       const { access_token } = await res.json();
-      onSignIn({ email, name: email, token: access_token });
+      onSignIn({ email, name: username || email, token: access_token });
     } catch (err) {
       alert("Failed to sign in. Please try again.");
     }
@@ -169,21 +177,39 @@ export function LandingPage({ onSignIn }) {
               Get Started – Access the most comprehensive business data
               enrichment platform
             </h2>
-            <div className="space-y-4">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <div className="space-y-4">
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email Address"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {isSignUp && (
+                  <>
+                    <input
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Username"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <input
+                      type="text"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      placeholder="Role"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </>
+                )}
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               <button
                 type="submit"
                 className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition shadow"
