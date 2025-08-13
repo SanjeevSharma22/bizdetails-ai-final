@@ -29,6 +29,8 @@ def init_db():
         if "users" in table_names:
             user_columns = {col["name"] for col in inspector.get_columns("users")}
 
+            if "username" not in user_columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN username VARCHAR"))
             if "full_name" not in user_columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN full_name VARCHAR"))
             if "role" not in user_columns:
@@ -81,6 +83,7 @@ def init_db():
         if not exists:
             admin_user = User(
                 email=admin_email,
+                username="admin",
                 hashed_password=pwd_context.hash("admin@123#"),
                 full_name="Admin",
                 role="Admin",
