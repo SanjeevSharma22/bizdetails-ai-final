@@ -1,9 +1,20 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Database, Globe, Brain, Building2, Check } from "lucide-react";
 
 export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+
+  // Keep the URL hash in sync so navigating to `#signup` opens the sign-up form
+  useEffect(() => {
+    const updateFromHash = () => {
+      setIsSignUp(window.location.hash === "#signup");
+    };
+    updateFromHash();
+    window.addEventListener("hashchange", updateFromHash);
+    return () => window.removeEventListener("hashchange", updateFromHash);
+  }, []);
 
   // Allow the component to work without an explicit VITE_API_BASE by
   // falling back to relative URLs so the frontend can communicate with the
@@ -13,20 +24,30 @@ export function LandingPage({ onSignIn }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      // First try to sign in. If that fails (e.g. user doesn't exist),
-      // automatically attempt to sign them up.
-      let res = await fetch(`${API}/api/auth/signin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!res.ok) {
+      let res;
+      if (isSignUp) {
         res = await fetch(`${API}/api/auth/signup`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, fullName: email }),
         });
         if (!res.ok) throw new Error("Auth failed");
+      } else {
+        // First try to sign in. If that fails (e.g. user doesn't exist),
+        // automatically attempt to sign them up.
+        res = await fetch(`${API}/api/auth/signin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          res = await fetch(`${API}/api/auth/signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password, fullName: email }),
+          });
+          if (!res.ok) throw new Error("Auth failed");
+        }
       }
       const { access_token } = await res.json();
       onSignIn({ email, name: email, token: access_token });
@@ -162,10 +183,38 @@ export function LandingPage({ onSignIn }) {
                 type="submit"
                 className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition shadow"
               >
-                Login
+                {isSignUp ? "Sign up" : "Login"}
               </button>
               <p className="text-sm text-center">
-                Don't have an account? <a href="#" className="text-blue-600 hover:underline">Sign up</a>
+                {isSignUp ? (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignUp(false);
+                        window.location.hash = "";
+                      }}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Login
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignUp(true);
+                        window.location.hash = "signup";
+                      }}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Sign up
+                    </button>
+                  </>
+                )}
               </p>
             </div>
             <ul className="mt-6 space-y-1 text-sm text-gray-600">
