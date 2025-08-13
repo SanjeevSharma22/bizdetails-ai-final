@@ -57,14 +57,18 @@ def authjwt_exception_handler(request, exc):
 class UserSignup(BaseModel):
     email: str
     password: str
-    full_name: str = Field(..., alias="fullName")
+    full_name: Optional[str] = Field(None, alias="fullName")
     role: Optional[str] = None
 
     @root_validator(pre=True)
     def populate_fullname(cls, values):
-        # Accept "name" as an alternative to "fullName" from clients
-        if "fullName" not in values and "name" in values:
-            values["fullName"] = values["name"]
+        # Accept "name" as an alternative to "fullName" from clients and
+        # fall back to using the email when no name is provided.
+        if "fullName" not in values:
+            if "name" in values:
+                values["fullName"] = values["name"]
+            elif "email" in values:
+                values["fullName"] = values["email"]
         return values
 
     class Config:
@@ -359,7 +363,7 @@ def signup(
     user = User(
         email=credentials.email,
         hashed_password=hashed_password,
-        full_name=credentials.full_name,
+        full_name=credentials.full_name or credentials.email,
         role=credentials.role or "User",
     )
     db.add(user)

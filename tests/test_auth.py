@@ -119,3 +119,23 @@ def test_signup_without_role_defaults(tmp_path):
     assert user.full_name == "No Role"
     assert user.role == "User"
     db.close()
+
+
+def test_signup_without_fullname_defaults_to_email(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={
+            "email": "noname@example.com",
+            "password": "secret",
+        },
+    )
+    assert resp.status_code == 200
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="noname@example.com").first()
+    assert user.full_name == "noname@example.com"
+    assert user.role == "User"
+    db.close()
