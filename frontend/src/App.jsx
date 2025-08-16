@@ -241,16 +241,14 @@ export default function App() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex gap-6">
-          <div
-            className={`flex-1 transition-all duration-300 ${showChat ? "mr-80" : ""}`}
-          >
+        <div className="flex flex-col lg:flex-row gap-6">
+          <div className="flex-1 transition-all duration-300">
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-3 mb-8">
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-8">
                 <TabsTrigger
                   value="dashboard"
                   className="flex items-center gap-2"
@@ -290,7 +288,7 @@ export default function App() {
           </div>
 
           {showChat && (
-            <div className="fixed right-6 top-24 bottom-6 w-80">
+            <div className="fixed inset-0 w-full z-50 sm:inset-auto sm:right-6 sm:top-24 sm:bottom-6 sm:w-80">
               <ChatPanel onClose={() => setShowChat(false)} />
             </div>
           )}
