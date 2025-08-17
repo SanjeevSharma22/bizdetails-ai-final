@@ -3,7 +3,7 @@ import csv
 import uuid
 import re
 import json
-from io import StringIO
+from io import StringIO, TextIOWrapper
 from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from datetime import datetime
@@ -528,8 +528,12 @@ async def admin_company_upload(
         )
         db.commit()
 
-    text = (await file.read()).decode("utf-8-sig", errors="ignore")
-    reader = csv.DictReader(StringIO(text))
+    # Stream file content instead of loading entire file into memory
+    file.file.seek(0)
+    text_stream = TextIOWrapper(
+        file.file, encoding="utf-8-sig", errors="ignore"
+    )
+    reader = csv.DictReader(text_stream)
 
     # Normalize CSV headers by stripping whitespace and lowering case
     raw_headers = reader.fieldnames or []
