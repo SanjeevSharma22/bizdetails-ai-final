@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 from urllib.parse import urlparse
 from datetime import datetime
 
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
@@ -16,7 +16,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
+from sqlalchemy import func, text, or_
 
 import pycountry
 
@@ -474,10 +474,43 @@ async def task_status(task_id: str):
     return {"task_id": task_id, "status": status}
 
 @app.get("/api/company_updated")
-def list_company_updated(db: Session = Depends(get_db)):
-    """Return all CompanyUpdated records for the dashboard."""
-    companies = db.query(CompanyUpdated).all()
-    return {"companies": [CompanyOut.from_orm(c).dict() for c in companies]}
+def list_company_updated(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    search: Optional[str] = None,
+    sort_key: str = "name",
+    sort_dir: str = "asc",
+    db: Session = Depends(get_db),
+):
+    """Return CompanyUpdated records with pagination."""
+    query = db.query(CompanyUpdated)
+
+    if search:
+        pattern = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(CompanyUpdated.name).like(pattern),
+                func.lower(CompanyUpdated.domain).like(pattern),
+                func.lower(CompanyUpdated.industry).like(pattern),
+                func.lower(CompanyUpdated.hq).like(pattern),
+            )
+        )
+
+    if sort_key not in {"name", "domain", "hq", "industry"}:
+        sort_key = "name"
+    sort_column = getattr(CompanyUpdated, sort_key)
+    if sort_dir == "desc":
+        sort_column = sort_column.desc()
+    query = query.order_by(sort_column)
+
+    total = query.count()
+    companies = (
+        query.offset((page - 1) * page_size).limit(page_size).all()
+    )
+    return {
+        "companies": [CompanyOut.from_orm(c).dict() for c in companies],
+        "total": total,
+    }
 
 @app.get("/api/dashboard")
 async def dashboard():
