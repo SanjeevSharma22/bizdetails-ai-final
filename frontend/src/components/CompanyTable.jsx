@@ -5,7 +5,6 @@ const API = import.meta.env.VITE_API_BASE || "";
 
 export function CompanyTable({ filters = {} }) {
   const [companies, setCompanies] = useState([]);
-  const [search, setSearch] = useState("");
   const [sortConfig, setSortConfig] = useState({
     key: "name",
     direction: "asc",
@@ -19,7 +18,6 @@ export function CompanyTable({ filters = {} }) {
     const params = new URLSearchParams({
       page,
       page_size: pageSize,
-      search,
       sort_key: sortConfig.key,
       sort_dir: sortConfig.direction,
     });
@@ -37,7 +35,7 @@ export function CompanyTable({ filters = {} }) {
         setCompanies(data.companies || []);
         setTotal(data.total || 0);
       });
-  }, [page, pageSize, search, sortConfig.key, sortConfig.direction, filters]);
+  }, [page, pageSize, sortConfig.key, sortConfig.direction, filters]);
 
   useEffect(() => {
     setPage(1);
@@ -76,17 +74,7 @@ export function CompanyTable({ filters = {} }) {
 
   return (
     <div className="relative text-green-400 font-mono">
-      <div className="flex justify-between items-center mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Search..."
-          className="w-full bg-gray-900 border border-green-500 rounded px-3 py-2 placeholder-green-700 focus:outline-none mr-4"
-        />
+      <div className="flex justify-end items-center mb-4">
         <div className="flex items-center space-x-2">
           <label htmlFor="pageSize">Records per page:</label>
           <select
