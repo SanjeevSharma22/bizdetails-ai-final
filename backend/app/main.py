@@ -16,7 +16,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text, or_
+from sqlalchemy import func, text, or_, and_, cast, Integer
 
 import pycountry
 
@@ -108,6 +108,7 @@ class CompanyOut(BaseModel):
     name: Optional[str]
     domain: str
     hq: Optional[str]
+    size: Optional[str]
     industry: Optional[str]
     linkedin_url: Optional[str]
 
@@ -480,6 +481,12 @@ def list_company_updated(
     search: Optional[str] = None,
     sort_key: str = "name",
     sort_dir: str = "asc",
+    company_name: Optional[str] = None,
+    domain: Optional[str] = None,
+    hq: Optional[str] = None,
+    size_min: Optional[int] = Query(None, ge=0),
+    size_max: Optional[int] = Query(None, ge=0),
+    size_range: List[str] = Query([]),
     db: Session = Depends(get_db),
 ):
     """Return CompanyUpdated records with pagination."""
@@ -496,9 +503,54 @@ def list_company_updated(
             )
         )
 
-    if sort_key not in {"name", "domain", "hq", "industry"}:
+    if company_name:
+        query = query.filter(
+            func.lower(CompanyUpdated.name).like(f"%{company_name.lower()}%")
+        )
+
+    if domain:
+        norm_domain = normalize_domain(domain)
+        query = query.filter(func.lower(CompanyUpdated.domain) == norm_domain.lower())
+
+    if hq:
+        query = query.filter(func.lower(CompanyUpdated.hq).like(f"%{hq.lower()}%"))
+
+    if size_range:
+        size_col = cast(CompanyUpdated.size, Integer)
+        range_map = {
+            "1-10": (1, 10),
+            "11-50": (11, 50),
+            "51-200": (51, 200),
+            "201-500": (201, 500),
+            "501-1000": (501, 1000),
+            "1001-5000": (1001, 5000),
+            "5001-10,000": (5001, 10000),
+            "10,001+": (10001, None),
+        }
+        filters = []
+        for label in size_range:
+            rng = range_map.get(label)
+            if not rng:
+                continue
+            min_v, max_v = rng
+            cond = size_col >= min_v
+            if max_v is not None:
+                cond = and_(cond, size_col <= max_v)
+            filters.append(cond)
+        if filters:
+            query = query.filter(or_(*filters))
+
+    if size_min is not None:
+        query = query.filter(cast(CompanyUpdated.size, Integer) >= size_min)
+    if size_max is not None:
+        query = query.filter(cast(CompanyUpdated.size, Integer) <= size_max)
+
+    if sort_key not in {"name", "domain", "hq", "industry", "size"}:
         sort_key = "name"
-    sort_column = getattr(CompanyUpdated, sort_key)
+    if sort_key == "size":
+        sort_column = cast(CompanyUpdated.size, Integer)
+    else:
+        sort_column = getattr(CompanyUpdated, sort_key)
     if sort_dir == "desc":
         sort_column = sort_column.desc()
     query = query.order_by(sort_column)
