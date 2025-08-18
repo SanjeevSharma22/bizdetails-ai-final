@@ -131,6 +131,12 @@ export function CompanyTable({ filters = {} }) {
               </th>
               <th
                 className="px-4 py-2 border border-green-500 cursor-pointer"
+                onClick={() => handleSort("size")}
+              >
+                Employees
+              </th>
+              <th
+                className="px-4 py-2 border border-green-500 cursor-pointer"
                 onClick={() => handleSort("industry")}
               >
                 Industry
@@ -153,6 +159,9 @@ export function CompanyTable({ filters = {} }) {
                 </td>
                 <td className="px-4 py-2 border border-green-500">
                   {c.hq || "N/A"}
+                </td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.size || "N/A"}
                 </td>
                 <td className="px-4 py-2 border border-green-500">
                   {c.industry || "N/A"}

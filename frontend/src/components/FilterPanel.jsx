@@ -23,10 +23,12 @@ export function FilterPanel({ onApply, onClear }) {
   const [companyName, setCompanyName] = useState("");
   const [nameSuggestions, setNameSuggestions] = useState([]);
   const [domain, setDomain] = useState("");
+  const [domainSuggestions, setDomainSuggestions] = useState([]);
   const [selectedRanges, setSelectedRanges] = useState([]);
   const [customMin, setCustomMin] = useState("");
   const [customMax, setCustomMax] = useState("");
   const [hq, setHq] = useState("");
+  const [appliedManual, setAppliedManual] = useState({});
 
   const ranges = [
     { label: "1-10", min: 1, max: 10 },
@@ -58,6 +60,27 @@ export function FilterPanel({ onApply, onClear }) {
     return () => controller.abort();
   }, [companyName]);
 
+  // Fetch suggestions when domain changes
+  useEffect(() => {
+    if (domain.trim().length < 2) {
+      setDomainSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetch(`${API}/api/company_updated?search=${domain}`, {
+      signal: controller.signal,
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const domains = (data.companies || [])
+          .map((c) => c.domain)
+          .filter(Boolean);
+        setDomainSuggestions(Array.from(new Set(domains)));
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [domain]);
+
   const handleRangeChange = (label) => {
     setSelectedRanges((prev) =>
       prev.includes(label) ? prev.filter((r) => r !== label) : [...prev, label],
@@ -85,8 +108,27 @@ export function FilterPanel({ onApply, onClear }) {
       sizeMax: customMax,
       hq,
     };
+    setAppliedManual({
+      sizeRanges: selectedRanges,
+      sizeMin: customMin,
+      sizeMax: customMax,
+      hq,
+    });
     onApply && onApply(payload);
   };
+
+  // Auto-apply filters for company name and domain
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const payload = {
+        companyName,
+        domain: normalizeDomain(domain),
+        ...appliedManual,
+      };
+      onApply && onApply(payload);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [companyName, domain, appliedManual]);
 
   const clearFilters = () => {
     setCompanyName("");
@@ -95,6 +137,7 @@ export function FilterPanel({ onApply, onClear }) {
     setCustomMin("");
     setCustomMax("");
     setHq("");
+    setAppliedManual({});
     onClear && onClear();
   };
 
@@ -125,11 +168,17 @@ export function FilterPanel({ onApply, onClear }) {
         <label className="block text-sm font-medium mb-1">Company Domain</label>
         <input
           type="text"
+          list="domain-suggestions"
           value={domain}
           onChange={(e) => setDomain(e.target.value)}
           className="w-full p-2 border rounded"
           placeholder="https://example.com"
         />
+        <datalist id="domain-suggestions">
+          {domainSuggestions.map((d) => (
+            <option key={d} value={d} />
+          ))}
+        </datalist>
       </div>
 
       {/* Employee Size */}
