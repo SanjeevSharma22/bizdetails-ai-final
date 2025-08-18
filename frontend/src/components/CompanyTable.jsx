@@ -3,10 +3,13 @@ import { CompanyDetailsPanel } from "./CompanyDetailsPanel";
 
 const API = import.meta.env.VITE_API_BASE || "";
 
-export function CompanyTable() {
+export function CompanyTable({ filters = {} }) {
   const [companies, setCompanies] = useState([]);
   const [search, setSearch] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
+  const [sortConfig, setSortConfig] = useState({
+    key: "name",
+    direction: "asc",
+  });
   const [selected, setSelected] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -20,13 +23,25 @@ export function CompanyTable() {
       sort_key: sortConfig.key,
       sort_dir: sortConfig.direction,
     });
+    if (filters.companyName) params.append("company_name", filters.companyName);
+    if (filters.domain) params.append("domain", filters.domain);
+    if (filters.hq) params.append("hq", filters.hq);
+    if (filters.sizeMin) params.append("size_min", filters.sizeMin);
+    if (filters.sizeMax) params.append("size_max", filters.sizeMax);
+    if (filters.sizeRanges && filters.sizeRanges.length) {
+      filters.sizeRanges.forEach((r) => params.append("size_range", r));
+    }
     fetch(`${API}/api/company_updated?${params.toString()}`)
       .then((res) => res.json())
       .then((data) => {
         setCompanies(data.companies || []);
         setTotal(data.total || 0);
       });
-  }, [page, pageSize, search, sortConfig.key, sortConfig.direction]);
+  }, [page, pageSize, search, sortConfig.key, sortConfig.direction, filters]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
 
   const formatLinkedInUrl = (url) =>
     /^https?:\/\//i.test(url) ? url : `https://${url}`;
@@ -133,7 +148,9 @@ export function CompanyTable() {
                 <td className="px-4 py-2 border border-green-500">
                   {c.name || "N/A"}
                 </td>
-                <td className="px-4 py-2 border border-green-500">{c.domain}</td>
+                <td className="px-4 py-2 border border-green-500">
+                  {c.domain}
+                </td>
                 <td className="px-4 py-2 border border-green-500">
                   {c.hq || "N/A"}
                 </td>
@@ -188,7 +205,7 @@ export function CompanyTable() {
               >
                 {p}
               </button>
-            )
+            ),
           )}
           <button
             onClick={() => setPage((p) => p + 1)}
@@ -207,4 +224,3 @@ export function CompanyTable() {
     </div>
   );
 }
-
