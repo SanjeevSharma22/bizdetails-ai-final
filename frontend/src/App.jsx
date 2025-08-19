@@ -202,7 +202,7 @@ export default function App() {
         <ComplianceBanner onDismiss={() => setShowCompliance(false)} />
       )}
       <header className="bg-gray-900 border-b border-green-500 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl 2xl:max-w-none mx-auto px-4 sm:px-6 lg:px-8 2xl:px-16">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
@@ -240,7 +240,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl 2xl:max-w-none mx-auto px-4 sm:px-6 lg:px-8 2xl:px-16 py-8">
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1 transition-all duration-300">
             <Tabs
