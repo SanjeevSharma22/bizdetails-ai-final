@@ -109,8 +109,8 @@ export function LandingPage({ onSignIn }) {
       <header className="w-full border-b border-gray-200">
         <div className="max-w-7xl 2xl:max-w-none mx-auto flex items-center justify-between py-4 px-6 2xl:px-16">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center">
-              <Database className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center">
+              <Database className="w-6 h-6 text-white" />
             </div>
             <div>
               <h1 className="text-xl font-semibold">BizDetails AI</h1>
@@ -146,7 +146,7 @@ export function LandingPage({ onSignIn }) {
             <div className="grid sm:grid-cols-2 gap-6 mb-8">
               {features.map((f) => (
                 <div key={f.title} className="flex items-start space-x-3">
-                  <f.icon className={`w-5 h-5 ${f.color} mt-1`} />
+                  <f.icon className={`w-6 h-6 ${f.color} mt-1`} />
                   <div>
                     <h4 className="font-semibold">{f.title}</h4>
                     <p className="text-sm text-gray-600">{f.description}</p>
@@ -250,15 +250,15 @@ export function LandingPage({ onSignIn }) {
             </div>
             <ul className="mt-6 space-y-1 text-sm text-gray-600">
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> GDPR & CCPA
+                <Check className="w-5 h-5 text-green-500 mr-2" /> GDPR & CCPA
                 Compliant
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" />{" "}
+                <Check className="w-5 h-5 text-green-500 mr-2" />{" "}
                 Enterprise-Grade Security
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> No Credit Card
+                <Check className="w-5 h-5 text-green-500 mr-2" /> No Credit Card
                 Required
               </li>
             </ul>
