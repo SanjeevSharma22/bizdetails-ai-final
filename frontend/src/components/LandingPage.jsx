@@ -107,7 +107,7 @@ export function LandingPage({ onSignIn }) {
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col">
       <header className="w-full border-b border-gray-200">
-        <div className="max-w-7xl mx-auto flex items-center justify-between py-4 px-6">
+        <div className="max-w-7xl 2xl:max-w-none mx-auto flex items-center justify-between py-4 px-6 2xl:px-16">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-md flex items-center justify-center">
               <Database className="w-5 h-5 text-white" />
@@ -126,7 +126,7 @@ export function LandingPage({ onSignIn }) {
       </header>
 
       <main className="flex-1">
-        <div className="max-w-7xl mx-auto px-6 py-16 grid gap-12 md:grid-cols-2 items-center">
+        <div className="max-w-7xl 2xl:max-w-none mx-auto px-6 2xl:px-16 py-16 grid gap-12 md:grid-cols-2 items-center">
           <div>
             <span className="inline-block px-3 py-1 mb-6 text-sm rounded-full bg-purple-100 text-purple-700">
               Powered by Advanced AI
@@ -177,39 +177,39 @@ export function LandingPage({ onSignIn }) {
               Get Started – Access the most comprehensive business data
               enrichment platform
             </h2>
-              <div className="space-y-4">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email Address"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                {isSignUp && (
-                  <>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Username"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <input
-                      type="text"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      placeholder="Role"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </>
-                )}
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+            <div className="space-y-4">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email Address"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {isSignUp && (
+                <>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Username"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    placeholder="Role"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </>
+              )}
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
               <button
                 type="submit"
                 className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition shadow"
@@ -254,8 +254,8 @@ export function LandingPage({ onSignIn }) {
                 Compliant
               </li>
               <li className="flex items-center">
-                <Check className="w-4 h-4 text-green-500 mr-2" /> Enterprise-Grade
-                Security
+                <Check className="w-4 h-4 text-green-500 mr-2" />{" "}
+                Enterprise-Grade Security
               </li>
               <li className="flex items-center">
                 <Check className="w-4 h-4 text-green-500 mr-2" /> No Credit Card
