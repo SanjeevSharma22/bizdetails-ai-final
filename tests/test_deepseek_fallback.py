@@ -13,7 +13,7 @@ def test_get_company_uses_db_when_present(tmp_path, monkeypatch):
             text("INSERT INTO company_updated (name, domain) VALUES ('Existing', 'exist.com')")
         )
 
-    def fail_fetch(query: str):
+    def fail_fetch(*, name=None, domain=None, linkedin_url=None):
         raise AssertionError("API should not be called")
 
     monkeypatch.setattr(main, "fetch_company_data", fail_fetch)
@@ -29,10 +29,10 @@ def test_get_company_falls_back_to_api(tmp_path, monkeypatch):
     import backend.app.main as main
     _create_company_table(database.engine)
 
-    def fake_fetch(query: str):
+    def fake_fetch(*, name=None, domain=None, linkedin_url=None):
         return {
             "name": "Deep Co",
-            "domain": query,
+            "domain": domain or name or "",
             "hq": "HQ",
             "size": "10",
             "industry": "Tech",

@@ -489,7 +489,7 @@ def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
         return CompanyOut.from_orm(company)
 
     try:
-        data = fetch_company_data(norm_domain)
+        data = fetch_company_data(domain=norm_domain)
     except DeepSeekError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
