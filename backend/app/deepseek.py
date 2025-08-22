@@ -18,7 +18,7 @@ def fetch_company_data(query: str) -> Dict:
         The company domain or name to search for.
     """
     headers = {}
-    api_key = os.getenv("sk-93ba2657d88b4c36b88a89d84d18796f")
+    api_key = os.getenv("DEEPSEEK_API_KEY")
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     try:
