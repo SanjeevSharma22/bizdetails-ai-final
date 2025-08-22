@@ -23,6 +23,7 @@ import pycountry
 from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
 from .normalization import normalize_company_name
+from .deepseek import fetch_company_data, DeepSeekError
 
 # --- DB bootstrap ---
 Base.metadata.create_all(bind=engine)
@@ -473,6 +474,37 @@ async def save_results(req: SaveResultsRequest):
 async def task_status(task_id: str):
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
+
+
+@app.get("/api/company", response_model=CompanyOut)
+def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
+    """Retrieve a company, falling back to DeepSeek API if missing."""
+    norm_domain = normalize_domain(domain)
+    company = (
+        db.query(CompanyUpdated)
+        .filter(func.lower(CompanyUpdated.domain) == norm_domain.lower())
+        .first()
+    )
+    if company:
+        return CompanyOut.from_orm(company)
+
+    try:
+        data = fetch_company_data(norm_domain)
+    except DeepSeekError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    company = CompanyUpdated(
+        name=data.get("name"),
+        domain=norm_domain,
+        hq=data.get("hq"),
+        size=data.get("size"),
+        industry=data.get("industry"),
+        linkedin_url=data.get("linkedin_url"),
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    return CompanyOut.from_orm(company)
 
 @app.get("/api/company_updated")
 def list_company_updated(
