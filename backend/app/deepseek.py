@@ -3,7 +3,7 @@ from typing import Dict
 
 import httpx
 
-DEEPSEEK_URL = "https://api.deepseek.com/company"
+DEEPSEEK_URL = "https://api.deepseek.com"
 
 class DeepSeekError(Exception):
     """Raised when the DeepSeek API cannot provide data."""
