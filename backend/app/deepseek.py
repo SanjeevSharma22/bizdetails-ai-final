@@ -1,7 +1,13 @@
 import os
+from pathlib import Path
 from typing import Dict, Optional
 
 import httpx
+from dotenv import load_dotenv
+
+# Load environment variables from backend/.env so fetch_company_data can
+# access the DeepSeek API key during runtime and tests.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 DEEPSEEK_URL = "https://api.deepseek.com"
 
