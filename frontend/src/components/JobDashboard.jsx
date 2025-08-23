@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { JobUploader } from "./JobUploader";
 import { JobsTable } from "./JobsTable";
 import { JobDetails } from "./JobDetails";
 
@@ -23,7 +22,6 @@ export function JobDashboard() {
 
   return (
     <div className="space-y-6">
-      <JobUploader onComplete={fetchJobs} />
       <JobsTable jobs={jobs} onSelect={setSelected} />
       {selected && <JobDetails jobId={selected} onClose={() => setSelected(null)} />}
     </div>
