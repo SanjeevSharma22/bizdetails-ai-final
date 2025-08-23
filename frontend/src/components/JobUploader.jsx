@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import { ColumnMappingScreen } from "./ColumnMappingScreen";
 
 const API = import.meta.env.VITE_API_BASE || "";
 
@@ -6,6 +7,8 @@ export function JobUploader({ onComplete }) {
   const [file, setFile] = useState(null);
   const [jobName, setJobName] = useState("");
   const [strategy, setStrategy] = useState("internal_then_ai_fallback");
+  const [step, setStep] = useState("upload");
+  const [uploadedFile, setUploadedFile] = useState(null);
   const inputRef = useRef(null);
 
   const handleBrowse = () => inputRef.current?.click();
@@ -26,20 +29,61 @@ export function JobUploader({ onComplete }) {
     }
   };
 
-  const handleSubmit = async () => {
+  const startMapping = async () => {
     if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API}/api/upload`, { method: "POST", body: form });
+    const { headers } = await res.json();
+    setUploadedFile({ file, columns: headers, data: [] });
+    setStep("mapping");
+  };
+
+  const handleMappingComplete = async (_mapped, mapping) => {
+    const backendKeyMap = {
+      domain: "domain",
+      companyName: "company_name",
+      linkedinUrl: "linkedin_url",
+      country: "country",
+      industry: "industry",
+      subindustry: "subindustry",
+      size: "size",
+      keywords: "keywords_cntxt",
+    };
+    const colMap = {};
+    Object.entries(mapping).forEach(([uiKey, srcCol]) => {
+      if (srcCol) {
+        const backendKey = backendKeyMap[uiKey] || uiKey;
+        colMap[backendKey] = srcCol.toLowerCase();
+      }
+    });
     const form = new FormData();
     form.append("file", file);
     form.append("job_name", jobName);
     form.append("strategy", strategy);
+    if (Object.keys(colMap).length) {
+      form.append("column_map", JSON.stringify(colMap));
+    }
     const res = await fetch(`${API}/api/jobs`, { method: "POST", body: form });
     if (res.ok) {
       setFile(null);
       setJobName("");
       setStrategy("internal_then_ai_fallback");
+      setUploadedFile(null);
+      setStep("upload");
       onComplete && onComplete();
     }
   };
+
+  if (step === "mapping" && uploadedFile) {
+    return (
+      <ColumnMappingScreen
+        uploadedFile={uploadedFile}
+        onMappingComplete={handleMappingComplete}
+        onBack={() => setStep("upload")}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -82,7 +126,7 @@ export function JobUploader({ onComplete }) {
       </div>
       <div className="text-right">
         <button
-          onClick={handleSubmit}
+          onClick={startMapping}
           disabled={!file}
           className="px-4 py-2 bg-green-600 text-black rounded disabled:opacity-50"
         >
