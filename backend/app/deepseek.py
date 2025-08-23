@@ -1,120 +1,213 @@
+from __future__ import annotations
+
+"""Utility functions for retrieving company data from the DeepSeek API."""
+
+import json
 import os
-from pathlib import Path
-from typing import Dict, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 import httpx
-from dotenv import load_dotenv
 
-# Load environment variables from backend/.env so fetch_company_data can
-# access the DeepSeek API key during runtime and tests.
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+# ---------------------------------------------------------------------------
+# Configuration
 
-DEEPSEEK_URL = "https://api.deepseek.com"
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_PATH = os.getenv("DEEPSEEK_PATH", "/chat/completions")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+REQUEST_TIMEOUT_SECS = float(os.getenv("DEEPSEEK_TIMEOUT_SECS", "30"))
 
-# Prompt used for requesting company enrichment data from the DeepSeek API.
-DEEPSEEK_PROMPT = (
-    "You are an expert at information retrieval and data enrichment. Your task is to "
-    "provide comprehensive and accurate details about a company based on its name, "
-    "domain, or LinkedIn URL.\n\n"
-    "Input\n"
-    "name: The common name of the company (e.g., \"Google\", \"Microsoft\", \"Salesforce\").\n"
-    "domain: The primary domain of the company (e.g., \"https://www.google.com/search?q=google.com\", "
-    "\"microsoft.com\", \"salesforce.com\").\n"
-    "linkedin_url: The URL of the company's official LinkedIn page (e.g., "
-    "\"https://www.linkedin.com/company/google\", \"https://www.linkedin.com/company/microsoft\").\n\n"
-    "Output Format\n"
-    "Your output must be a single JSON object with the following keys. Ensure the data "
-    "is as detailed and accurate as possible. If a piece of information cannot be "
-    "found, the key's value should be null or an empty array [].\n\n"
-    "JSON\n\n"
+# Prompt instructing the model to output strictly the expected JSON shape.
+DEEPSEEK_SYSTEM_PROMPT = (
+    "You are an information-retrieval and data-enrichment engine. "
+    "Given optional company name, domain, and LinkedIn URL, return a SINGLE JSON object "
+    "with these keys only and nothing else (no prose):\n\n"
     "{\n"
-    "  \"name\": null,\n"
-    "  \"domain\": null,\n"
-    "  \"countries\": [],\n"
-    "  \"hq\": null,\n"
-    "  \"industry\": null,\n"
-    "  \"subindustries\": [],\n"
-    "  \"keywords_cntxt\": [],\n"
-    "  \"size\": null,\n"
-    "  \"linkedin_url\": null,\n"
-    "  \"slug\": null,\n"
-    "  \"original_name\": null,\n"
-    "  \"legal_name\": null\n"
+    '  "name": null,\n'
+    '  "domain": null,\n'
+    '  "countries": [],\n'
+    '  "hq": null,\n'
+    '  "industry": null,\n'
+    '  "subindustries": [],\n'
+    '  "keywords_cntxt": [],\n'
+    '  "size": null,\n'
+    '  "linkedin_url": null,\n'
+    '  "slug": null,\n'
+    '  "original_name": null,\n'
+    '  "legal_name": null\n'
     "}\n\n"
-    "Key Definitions & Requirements\n"
-    "name: The common or trade name of the company as it is widely known.\n\n"
-    "domain: The primary domain of the company's website.\n\n"
-    "countries: An array of strings. List all countries where the company has physical "
-    "offices or a significant operational presence. Do not include countries where the "
-    "company only sells products.\n\n"
-    "hq: A string. The country where the company's headquarters is located.\n\n"
-    "industry: A string. The primary industry the company belongs to (e.g., \"Information "
-    "Technology and Services\", \"Financial Services\", \"Automotive\").\n\n"
-    "subindustries: An array of strings. A list of specific sub-industries or sectors "
-    "the company operates within (e.g., \"SaaS\", \"Cloud Computing\", \"Artificial Intelligence\").\n\n"
-    "keywords_cntxt: An array of strings. A list of the company's official specialties "
-    "or keywords as listed on its LinkedIn page or official website.\n\n"
-    "size: A string. The employee size range of the company as of the most recent data "
-    "available. Use a standard format like \"1001-5000 employees\" or \"10,000+ employees\".\n\n"
-    "linkedin_url: A string. The complete and correct URL of the company's official LinkedIn "
-    "page.\n\n"
-    "slug: A string. The unique identifier used in the company's LinkedIn URL (e.g., for "
-    "\"https://www.linkedin.com/company/google\", the slug is \"google\").\n\n"
-    "original_name: A string. The common name of the company. This may be the same as the "
-    "legal name.\n\n"
-    "legal_name: A string. The formal, registered legal name of the company. This may "
-    "differ from the original name (e.g., \"Alphabet Inc.\" for \"Google\").\n\n"
-    "Constraint Checklist & Instructions\n"
-    "You must use the provided JSON structure for your output.\n\n"
-    "Prioritize data from the official LinkedIn page, the company's official website, "
-    "and other reputable business data sources.\n\n"
-    "If multiple names or domains are provided, use them to cross-reference and ensure "
-    "accuracy.\n\n"
-    "Do not guess or hallucinate information. If data is not available, return null or [].\n\n"
-    "Ensure that the linkedin_url and slug are correctly extracted from the LinkedIn profile.\n\n"
-    "All data provided must be as current as possible.\n\n"
-    "Do not include any conversational text or explanations outside of the JSON output."
+    "Rules: If unknown, use null or []. Do not include any text outside JSON. "
+    "Prefer official LinkedIn and company site. Ensure linkedin_url and slug are correct."
+)
+
+DEEPSEEK_USER_TEMPLATE = (
+    "Input:\n"
+    "name: {name}\n"
+    "domain: {domain}\n"
+    "linkedin_url: {linkedin_url}\n"
 )
 
 
+# ---------------------------------------------------------------------------
+# Errors
+
+
 class DeepSeekError(Exception):
-    """Raised when the DeepSeek API cannot provide data."""
+    """Raised when the DeepSeek API cannot provide usable data."""
+
+
+@dataclass
+class DeepSeekHTTPError(DeepSeekError):
+    status_code: int
+    body: str
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+
+
+def _require_api_key() -> str:
+    api_key = os.getenv("DEEPSEEK_API_KEY")
+    if not api_key:
+        raise DeepSeekError("DEEPSEEK_API_KEY is not set")
+    return api_key
+
+
+def _make_client() -> httpx.Client:
+    return httpx.Client(base_url=DEEPSEEK_BASE_URL, timeout=REQUEST_TIMEOUT_SECS)
+
+
+def _build_payload(
+    name: Optional[str], domain: Optional[str], linkedin_url: Optional[str]
+) -> Dict[str, Any]:
+    user_content = DEEPSEEK_USER_TEMPLATE.format(
+        name=name or "null",
+        domain=domain or "null",
+        linkedin_url=linkedin_url or "null",
+    )
+    return {
+        "model": DEEPSEEK_MODEL,
+        "messages": [
+            {"role": "system", "content": DEEPSEEK_SYSTEM_PROMPT},
+            {"role": "user", "content": user_content},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.0,
+    }
+
+
+def _parse_response_json(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Attempt to parse various expected DeepSeek response shapes."""
+    try:
+        choices = payload.get("choices")
+        if choices:
+            content = choices[0]["message"]["content"]
+            return json.loads(content)
+    except Exception:
+        pass
+
+    data_obj = payload.get("data")
+    if isinstance(data_obj, dict):
+        return data_obj
+
+    expected_keys = {
+        "name",
+        "domain",
+        "countries",
+        "hq",
+        "industry",
+        "subindustries",
+        "keywords_cntxt",
+        "size",
+        "linkedin_url",
+        "slug",
+        "original_name",
+        "legal_name",
+    }
+    if isinstance(payload, dict) and expected_keys.issubset(payload.keys()):
+        return payload
+
+    raise DeepSeekError("Unable to parse DeepSeek response into expected JSON object")
+
+
+def _validate_shape(obj: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure required keys exist with appropriate types, coercing when necessary."""
+    schema = {
+        "name": (str, type(None)),
+        "domain": (str, type(None)),
+        "countries": (list,),
+        "hq": (str, type(None)),
+        "industry": (str, type(None)),
+        "subindustries": (list,),
+        "keywords_cntxt": (list,),
+        "size": (str, type(None)),
+        "linkedin_url": (str, type(None)),
+        "slug": (str, type(None)),
+        "original_name": (str, type(None)),
+        "legal_name": (str, type(None)),
+    }
+    fixed: Dict[str, Any] = {}
+    for key, types in schema.items():
+        val = obj.get(key)
+        if key in {"countries", "subindustries", "keywords_cntxt"}:
+            if not isinstance(val, list):
+                val = [] if val in (None, "") else [val]
+        else:
+            if not isinstance(val, types):
+                val = None if val in ("", []) else str(val) if val is not None else None
+        fixed[key] = val
+    return fixed
+
+
+# ---------------------------------------------------------------------------
+# Public API
 
 
 def fetch_company_data(
     name: Optional[str] = None,
     domain: Optional[str] = None,
     linkedin_url: Optional[str] = None,
-) -> Dict:
-    """Fetch company data from the DeepSeek API.
+) -> Dict[str, Any]:
+    """Fetch company data from the DeepSeek API and return a normalized dict."""
 
-    Parameters
-    ----------
-    name: Optional[str]
-        Common or trade name of the company.
-    domain: Optional[str]
-        Primary domain of the company.
-    linkedin_url: Optional[str]
-        LinkedIn profile URL of the company.
-    """
-    headers = {}
-    api_key = os.getenv("DEEPSEEK_API_KEY")
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    payload = {
-        "prompt": DEEPSEEK_PROMPT,
-        "name": name,
-        "domain": domain,
-        "linkedin_url": linkedin_url,
+    api_key = _require_api_key()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
     }
 
-    try:
-        resp = httpx.post(DEEPSEEK_URL, json=payload, headers=headers, timeout=10)
-        resp.raise_for_status()
-        data = resp.json()
-        if not isinstance(data, dict):
-            raise DeepSeekError("Invalid response from DeepSeek API")
-        return data
-    except Exception as exc:  # broad to wrap httpx/network errors
-        raise DeepSeekError(str(exc)) from exc
+    payload = _build_payload(name, domain, linkedin_url)
+
+    backoffs = (0.5, 1.0, 2.0)
+    last_exc: Optional[Exception] = None
+
+    with _make_client() as client:
+        for backoff in (*backoffs, None):
+            try:
+                resp = client.post(DEEPSEEK_PATH, json=payload, headers=headers)
+                if resp.status_code >= 400:
+                    raise DeepSeekHTTPError(resp.status_code, resp.text)
+                parsed = _parse_response_json(resp.json())
+                return _validate_shape(parsed)
+            except DeepSeekHTTPError:
+                raise
+            except (httpx.HTTPError, json.JSONDecodeError, DeepSeekError) as exc:
+                last_exc = exc
+                if backoff is None:
+                    break
+                try:
+                    import time
+
+                    time.sleep(backoff)
+                except Exception:
+                    pass
+
+    raise DeepSeekError(f"DeepSeek request failed after retries: {last_exc!s}")
+
+
+__all__ = [
+    "DeepSeekError",
+    "DeepSeekHTTPError",
+    "fetch_company_data",
+]
+

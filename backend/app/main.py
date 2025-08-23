@@ -604,61 +604,32 @@ async def create_job(
     job_name: str = Form(...),
     strategy: str = Form("internal_then_ai_fallback"),
     file: UploadFile = File(...),
-    column_map: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     authorize: AuthJWT = Depends(),
 ):
     authorize.jwt_required()
     text = (await file.read()).decode("utf-8-sig", errors="ignore")
     reader = csv.DictReader(StringIO(text))
-
-    # Normalize headers to simplify mapping lookups
-    raw_headers = reader.fieldnames or []
-    normalized_headers = [h.strip().lower() for h in raw_headers if h is not None]
-    reader.fieldnames = normalized_headers
-
-    mapping: Dict[str, str] = {}
-    if column_map:
-        try:
-            mapping = json.loads(column_map)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid column_map")
-        mapping = {
-            k.lower(): v.strip().lower() for k, v in mapping.items() if isinstance(v, str)
-        }
-
-    required = {"domain", "company_name"}
-    headers_set = set(normalized_headers)
-    missing = {
-        field for field in required if mapping.get(field, field) not in headers_set
-    }
-    if missing:
+    headers = [h.lower() for h in (reader.fieldnames or [])]
+    if "company_name" not in headers or "domain" not in headers:
         raise HTTPException(
             status_code=400,
-            detail=f"CSV must include columns: {', '.join(sorted(missing))}",
+            detail="CSV must include company_name and domain columns",
         )
-
-    rows: List[Dict[str, Any]] = []
-    for row in reader:
-        normalized = dict(row)
-        for field in ("domain", "company_name", "linkedin_url"):
-            normalized[field] = row.get(mapping.get(field, field))
-        rows.append(normalized)
-
+    rows = [row for row in reader]
     if len(rows) > 10000:
         raise HTTPException(status_code=400, detail="CSV exceeds 10000 rows")
-
     seen = set()
-    deduped: List[Dict[str, Any]] = []
+    deduped = []
     for row in rows:
         d = (row.get("domain") or "").lower()
-        if d and d in seen:
+        if d in seen:
             continue
-        if d:
-            seen.add(d)
+        seen.add(d)
         deduped.append(row)
-
-    results, stats, internal_total, ai_total = process_job_rows(deduped, db, strategy)
+    results, stats, internal_total, ai_total = process_job_rows(
+        deduped, db, strategy
+    )
     job_id = str(uuid.uuid4())
     now = datetime.utcnow()
     meta = JobMeta(
