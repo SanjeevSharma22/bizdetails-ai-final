@@ -12,7 +12,6 @@ import { Button } from "./components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Badge } from "./components/ui/badge";
 import { UploadScreen } from "./components/UploadScreen";
-import { JobDashboard } from "./components/JobDashboard";
 import { ColumnMappingScreen } from "./components/ColumnMappingScreen";
 import { ResultsView } from "./components/ResultsView";
 import { Dashboard } from "./components/Dashboard";
@@ -28,7 +27,7 @@ const API = import.meta.env.VITE_API_BASE || "";
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [uploadStep, setUploadStep] = useState("upload");
   const [showChat, setShowChat] = useState(false);
   const [showCompliance, setShowCompliance] = useState(true);
@@ -249,11 +248,7 @@ export default function App() {
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 mb-8">
-                <TabsTrigger value="jobs" className="flex items-center gap-2">
-                  <Database className="w-4 h-4" />
-                  Jobs
-                </TabsTrigger>
+              <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-8">
                 <TabsTrigger
                   value="dashboard"
                   className="flex items-center gap-2"
@@ -279,10 +274,6 @@ export default function App() {
                   Results
                 </TabsTrigger>
               </TabsList>
-
-              <TabsContent value="jobs" className="space-y-6">
-                <JobDashboard />
-              </TabsContent>
               <TabsContent value="dashboard" className="space-y-6">
                 <Dashboard />
               </TabsContent>
