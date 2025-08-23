@@ -44,7 +44,7 @@ export function ColumnMappingScreen({ uploadedFile, onMappingComplete, onBack })
       return result;
     });
 
-    onMappingComplete(mapped);
+    onMappingComplete(mapped, mapping);
     setShowModal(false);
   };
 
