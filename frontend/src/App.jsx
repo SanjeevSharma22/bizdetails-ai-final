@@ -5,7 +5,6 @@ import {
   MessageCircle,
   FileText,
   Settings,
-  BarChart,
   User,
   LogOut,
 } from "lucide-react";
@@ -17,7 +16,6 @@ import { JobDashboard } from "./components/JobDashboard";
 import { ColumnMappingScreen } from "./components/ColumnMappingScreen";
 import { ResultsView } from "./components/ResultsView";
 import { Dashboard } from "./components/Dashboard";
-import { ProcessingDashboard } from "./components/ProcessingDashboard";
 import { ChatPanel } from "./components/ChatPanel";
 import { ComplianceBanner } from "./components/ComplianceBanner";
 import { LandingPage } from "./components/LandingPage";
@@ -280,13 +278,6 @@ export default function App() {
                   <FileText className="w-4 h-4" />
                   Results
                 </TabsTrigger>
-                <TabsTrigger
-                  value="processing"
-                  className="flex items-center gap-2"
-                >
-                  <BarChart className="w-4 h-4" />
-                  Processing Dashboard
-                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="jobs" className="space-y-6">
@@ -300,9 +291,6 @@ export default function App() {
               </TabsContent>
               <TabsContent value="results" className="space-y-6">
                 <ResultsView results={processedResults} />
-              </TabsContent>
-              <TabsContent value="processing" className="space-y-6">
-                <ProcessingDashboard />
               </TabsContent>
             </Tabs>
           </div>
