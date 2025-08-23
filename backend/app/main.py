@@ -113,7 +113,6 @@ class FieldStat(BaseModel):
 
 class JobMeta(BaseModel):
     job_id: str
-    name: str
     status: str
     created_at: datetime
     updated_at: datetime
@@ -182,7 +181,7 @@ def extract_linkedin_slug(url: str) -> str:
 
 
 def process_job_rows(
-    rows: List[Dict[str, Optional[str]]], db: Session, strategy: str
+    rows: List[Dict[str, Optional[str]]], db: Session
 ) -> tuple[List[ProcessedResult], Dict[str, FieldStat], int, int]:
     results: List[ProcessedResult] = []
     fields = [
@@ -214,7 +213,7 @@ def process_job_rows(
             "industry": "",
         }
         company = None
-        if strategy in ("internal_only", "internal_then_ai_fallback") and norm_domain:
+        if norm_domain:
             company = (
                 db.query(CompanyUpdated)
                 .filter(func.lower(CompanyUpdated.domain) == norm_domain)
@@ -236,7 +235,7 @@ def process_job_rows(
                     field_stats[f].enriched += 1
                     field_stats[f].internal += 1
                     internal_total += 1
-        elif strategy in ("ai_only", "internal_then_ai_fallback"):
+        else:
             try:
                 fetched = fetch_company_data(
                     name=name or None, domain=norm_domain or None, linkedin_url=linkedin or None
@@ -601,8 +600,6 @@ async def task_status(task_id: str):
 
 @app.post("/api/jobs")
 async def create_job(
-    job_name: str = Form(...),
-    strategy: str = Form("internal_then_ai_fallback"),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     authorize: AuthJWT = Depends(),
@@ -628,13 +625,12 @@ async def create_job(
         seen.add(d)
         deduped.append(row)
     results, stats, internal_total, ai_total = process_job_rows(
-        deduped, db, strategy
+        deduped, db
     )
     job_id = str(uuid.uuid4())
     now = datetime.utcnow()
     meta = JobMeta(
         job_id=job_id,
-        name=job_name,
         status="completed",
         created_at=now,
         updated_at=now,
@@ -669,7 +665,6 @@ def list_jobs():
         jobs.append(
             {
                 "job_id": job_id,
-                "name": meta.name,
                 "status": meta.status,
                 "progress": progress,
                 "created_at": meta.created_at,

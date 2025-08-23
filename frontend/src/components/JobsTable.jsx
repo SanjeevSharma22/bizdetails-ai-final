@@ -5,7 +5,6 @@ export function JobsTable({ jobs, onSelect }) {
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left">
-          <th className="p-2">Job Name</th>
           <th className="p-2">Status</th>
           <th className="p-2">Progress</th>
           <th className="p-2">Created</th>
@@ -20,7 +19,6 @@ export function JobsTable({ jobs, onSelect }) {
             className="border-t border-gray-800 hover:bg-gray-800 cursor-pointer"
             onClick={() => onSelect && onSelect(j.job_id)}
           >
-            <td className="p-2">{j.name}</td>
             <td className="p-2">{j.status}</td>
             <td className="p-2">{j.progress.toFixed(0)}%</td>
             <td className="p-2">

@@ -19,7 +19,7 @@ export function JobDetails({ jobId, onClose }) {
   return (
     <div className="mt-4 p-4 border border-green-500 rounded bg-gray-900">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-lg">Job Details: {meta.name}</h2>
+        <h2 className="text-lg">Job Details</h2>
         <button onClick={onClose} className="text-sm underline">
           Close
         </button>

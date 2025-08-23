@@ -28,7 +28,7 @@ const API = import.meta.env.VITE_API_BASE || "";
 export default function App() {
   const [user, setUser] = useState(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [uploadStep, setUploadStep] = useState("upload");
   const [showChat, setShowChat] = useState(false);
   const [showCompliance, setShowCompliance] = useState(true);
@@ -250,12 +250,12 @@ export default function App() {
               className="w-full"
             >
               <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4 mb-8">
-                <TabsTrigger value="jobs" className="flex items-center gap-2">
+                <TabsTrigger value="dashboard" className="flex items-center gap-2">
                   <Database className="w-4 h-4" />
-                  Jobs
+                  Dashboard
                 </TabsTrigger>
                 <TabsTrigger
-                  value="dashboard"
+                  value="company-data"
                   className="flex items-center gap-2"
                 >
                   <Database className="w-4 h-4" />
@@ -280,10 +280,10 @@ export default function App() {
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="jobs" className="space-y-6">
+              <TabsContent value="dashboard" className="space-y-6">
                 <JobDashboard />
               </TabsContent>
-              <TabsContent value="dashboard" className="space-y-6">
+              <TabsContent value="company-data" className="space-y-6">
                 <Dashboard />
               </TabsContent>
               <TabsContent value="upload" className="space-y-6">
