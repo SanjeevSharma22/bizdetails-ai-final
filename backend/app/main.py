@@ -105,6 +105,30 @@ class ProcessedResult(BaseModel):
     sources: Dict[str, str] = Field(default_factory=dict)
 
 
+class FieldStat(BaseModel):
+    enriched: int = 0
+    internal: int = 0
+    ai: int = 0
+
+
+class JobMeta(BaseModel):
+    job_id: str
+    name: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    total_records: int
+    processed_records: int
+    internal_fields: int
+    ai_fields: int
+    field_stats: Dict[str, FieldStat]
+
+
+class JobData(BaseModel):
+    meta: JobMeta
+    results: List[ProcessedResult]
+
+# Response schema for dashboard company listings
 class CompanyOut(BaseModel):
     id: int
     name: Optional[str]
@@ -119,6 +143,7 @@ class CompanyOut(BaseModel):
 
 # In-memory task store (MVP)
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
+JOB_STORE: Dict[str, JobData] = {}
 
 # --- Normalization helpers ---
 
@@ -155,6 +180,102 @@ def extract_linkedin_slug(url: str) -> str:
     # If no /company/ segment, assume provided slug
     return path.strip("/")
 
+
+def process_job_rows(
+    rows: List[Dict[str, Optional[str]]], db: Session, strategy: str
+) -> tuple[List[ProcessedResult], Dict[str, FieldStat], int, int]:
+    results: List[ProcessedResult] = []
+    fields = [
+        "companyName",
+        "domain",
+        "hq",
+        "size",
+        "linkedin_url",
+        "country",
+        "industry",
+    ]
+    field_stats = {name: FieldStat() for name in fields}
+    internal_total = 0
+    ai_total = 0
+
+    for idx, row in enumerate(rows, start=1):
+        name = row.get("company_name") or row.get("Company Name") or ""
+        domain = row.get("domain") or row.get("Domain") or ""
+        linkedin = row.get("linkedin_url") or row.get("LinkedIn URL") or ""
+        norm_domain = normalize_domain(domain)
+        sources: Dict[str, str] = {}
+        data: Dict[str, Any] = {
+            "companyName": name,
+            "domain": norm_domain,
+            "hq": "",
+            "size": "",
+            "linkedin_url": linkedin,
+            "country": "",
+            "industry": "",
+        }
+        company = None
+        if strategy in ("internal_only", "internal_then_ai_fallback") and norm_domain:
+            company = (
+                db.query(CompanyUpdated)
+                .filter(func.lower(CompanyUpdated.domain) == norm_domain)
+                .first()
+            )
+        if company:
+            data["companyName"] = company.name or name
+            data["domain"] = company.domain or norm_domain
+            data["hq"] = company.hq or ""
+            data["size"] = company.size or ""
+            data["linkedin_url"] = company.linkedin_url or ""
+            data["industry"] = company.industry or ""
+            data["country"] = (
+                company.countries[0] if getattr(company, "countries", None) else ""
+            )
+            for f in fields:
+                if data.get(f):
+                    sources[f] = "internal"
+                    field_stats[f].enriched += 1
+                    field_stats[f].internal += 1
+                    internal_total += 1
+        elif strategy in ("ai_only", "internal_then_ai_fallback"):
+            try:
+                fetched = fetch_company_data(
+                    name=name or None, domain=norm_domain or None, linkedin_url=linkedin or None
+                )
+                data["companyName"] = fetched.get("name") or name
+                data["domain"] = fetched.get("domain") or norm_domain
+                data["hq"] = fetched.get("hq") or ""
+                data["size"] = fetched.get("size") or ""
+                data["linkedin_url"] = fetched.get("linkedin_url") or ""
+                data["industry"] = fetched.get("industry") or ""
+                countries = fetched.get("countries") or []
+                data["country"] = countries[0] if countries else ""
+                for f in fields:
+                    if data.get(f):
+                        sources[f] = "ai"
+                        field_stats[f].enriched += 1
+                        field_stats[f].ai += 1
+                        ai_total += 1
+            except DeepSeekError:
+                pass
+
+        result = ProcessedResult(
+            id=idx,
+            companyName=data["companyName"],
+            originalData=row,
+            domain=data["domain"],
+            hq=data["hq"],
+            size=data["size"],
+            linkedin_url=data["linkedin_url"],
+            confidence="High" if sources else "Low",
+            matchType="Internal" if company else ("AI" if sources else "None"),
+            notes=None if sources else "Not found",
+            country=data["country"],
+            industry=data["industry"],
+            sources=sources,
+        )
+        results.append(result)
+
+    return results, field_stats, internal_total, ai_total
 
 # --- Enrichment ---
 def enrich_domains(
@@ -477,6 +598,127 @@ async def task_status(task_id: str):
     status = "completed" if task_id in TASK_RESULTS else "pending"
     return {"task_id": task_id, "status": status}
 
+
+@app.post("/api/jobs")
+async def create_job(
+    job_name: str = Form(...),
+    strategy: str = Form("internal_then_ai_fallback"),
+    file: UploadFile = File(...),
+    column_map: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    authorize: AuthJWT = Depends(),
+):
+    authorize.jwt_required()
+    text = (await file.read()).decode("utf-8-sig", errors="ignore")
+    reader = csv.DictReader(StringIO(text))
+
+    # Normalize headers to simplify mapping lookups
+    raw_headers = reader.fieldnames or []
+    normalized_headers = [h.strip().lower() for h in raw_headers if h is not None]
+    reader.fieldnames = normalized_headers
+
+    mapping: Dict[str, str] = {}
+    if column_map:
+        try:
+            mapping = json.loads(column_map)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid column_map")
+        mapping = {
+            k.lower(): v.strip().lower() for k, v in mapping.items() if isinstance(v, str)
+        }
+
+    required = {"domain", "company_name"}
+    headers_set = set(normalized_headers)
+    missing = {
+        field for field in required if mapping.get(field, field) not in headers_set
+    }
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV must include columns: {', '.join(sorted(missing))}",
+        )
+
+    rows: List[Dict[str, Any]] = []
+    for row in reader:
+        normalized = dict(row)
+        for field in ("domain", "company_name", "linkedin_url"):
+            normalized[field] = row.get(mapping.get(field, field))
+        rows.append(normalized)
+
+    if len(rows) > 10000:
+        raise HTTPException(status_code=400, detail="CSV exceeds 10000 rows")
+
+    seen = set()
+    deduped: List[Dict[str, Any]] = []
+    for row in rows:
+        d = (row.get("domain") or "").lower()
+        if d and d in seen:
+            continue
+        if d:
+            seen.add(d)
+        deduped.append(row)
+
+    results, stats, internal_total, ai_total = process_job_rows(deduped, db, strategy)
+    job_id = str(uuid.uuid4())
+    now = datetime.utcnow()
+    meta = JobMeta(
+        job_id=job_id,
+        name=job_name,
+        status="completed",
+        created_at=now,
+        updated_at=now,
+        total_records=len(deduped),
+        processed_records=len(deduped),
+        internal_fields=internal_total,
+        ai_fields=ai_total,
+        field_stats=stats,
+    )
+    JOB_STORE[job_id] = JobData(meta=meta, results=results)
+    current_user_email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == current_user_email).first()
+    if user:
+        user.enrichment_count += 1
+        db.commit()
+    return {"job_id": job_id}
+
+
+@app.get("/api/jobs")
+def list_jobs():
+    jobs = []
+    for job_id, data in JOB_STORE.items():
+        meta = data.meta
+        total = meta.internal_fields + meta.ai_fields
+        internal_pct = (meta.internal_fields / total * 100) if total else 0.0
+        ai_pct = (meta.ai_fields / total * 100) if total else 0.0
+        progress = (
+            meta.processed_records / meta.total_records * 100
+            if meta.total_records
+            else 0.0
+        )
+        jobs.append(
+            {
+                "job_id": job_id,
+                "name": meta.name,
+                "status": meta.status,
+                "progress": progress,
+                "created_at": meta.created_at,
+                "updated_at": meta.updated_at,
+                "internal_pct": internal_pct,
+                "ai_pct": ai_pct,
+            }
+        )
+    return {"jobs": jobs}
+
+
+@app.get("/api/jobs/{job_id}")
+def job_details(job_id: str):
+    data = JOB_STORE.get(job_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {
+        "meta": data.meta.dict(),
+        "results": [r.dict() for r in data.results],
+    }
 
 
 @app.get("/api/company", response_model=CompanyOut)
