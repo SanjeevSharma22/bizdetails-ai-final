@@ -3,15 +3,6 @@ import React from "react";
 export function JobsTable({ jobs, onSelect }) {
   return (
     <table className="w-full text-sm">
-      <thead>
-        <tr className="text-left">
-          <th className="p-2">Status</th>
-          <th className="p-2">Progress</th>
-          <th className="p-2">Created</th>
-          <th className="p-2">Attribution</th>
-          <th className="p-2">Downloads</th>
-        </tr>
-      </thead>
       <tbody>
         {jobs.map((j) => (
           <tr
