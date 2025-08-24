@@ -74,27 +74,6 @@ export function CompanyTable({ filters = {} }) {
 
   return (
     <div className="relative text-green-400 font-mono">
-      <div className="flex justify-end items-center mb-4">
-        <div className="flex items-center space-x-2">
-          <label htmlFor="pageSize">Records per page:</label>
-          <select
-            id="pageSize"
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setPage(1);
-            }}
-            className="bg-gray-900 border border-green-500 rounded px-2 py-1"
-          >
-            {[10, 20, 50, 100].map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       <div className="overflow-x-auto">
         <table className="min-w-full border border-green-500">
           <thead className="bg-gray-900">
@@ -179,6 +158,24 @@ export function CompanyTable({ filters = {} }) {
         <span className="text-sm">
           Showing {startItem}-{endItem} of {total} results
         </span>
+        <div className="flex items-center space-x-2">
+          <label htmlFor="pageSize">Records per page:</label>
+          <select
+            id="pageSize"
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+            }}
+            className="bg-gray-900 border border-green-500 rounded px-2 py-1"
+          >
+            {[10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex items-center space-x-1">
           <button
             onClick={() => setPage((p) => p - 1)}
