@@ -34,6 +34,9 @@ def log_activity(user: User, action: str) -> None:
     """Append a simple activity record to the user's log."""
     events = list(user.activity_log or [])
     events.append({"action": action, "timestamp": datetime.now(timezone.utc).isoformat()})
+    # Keep only the 10 most recent activities to prevent unbounded growth
+    if len(events) > 10:
+        events = events[-10:]
     user.activity_log = events
 
 # --- App ---
@@ -585,7 +588,8 @@ async def process(
     if user:
         user.enrichment_count += 1
         user.last_enrichment_at = datetime.now(timezone.utc)
-        user.last_file_name = req.file_name
+        if req.file_name:
+            user.last_file_name = req.file_name
         user.last_accounts_pushed = len(rows)
         user.last_accounts_enriched = len(enriched)
         log_activity(user, "enrichment")
