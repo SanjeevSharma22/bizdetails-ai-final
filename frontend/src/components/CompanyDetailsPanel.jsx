@@ -52,11 +52,11 @@ export function CompanyDetailsPanel({ company, onClose }) {
         role="dialog"
         aria-modal="true"
         aria-label="Company details"
-        className={`fixed top-0 right-0 h-full w-96 max-w-full bg-gray-900 text-green-400 shadow-lg transform transition-transform duration-300 border-l border-green-500 ${
+        className={`fixed top-0 right-0 h-full w-96 max-w-full bg-white shadow-lg transform transition-transform duration-300 border-l ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="p-4 border-b border-green-500 flex items-center justify-between">
+        <div className="p-4 border-b flex items-center justify-between">
           <div className="flex items-center gap-3">
             {company?.domain ? (
               <img
@@ -69,7 +69,7 @@ export function CompanyDetailsPanel({ company, onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="text-green-400 hover:text-green-200"
+            className="text-gray-600 hover:text-gray-800"
             aria-label="Close panel"
           >
             ✕
@@ -79,19 +79,19 @@ export function CompanyDetailsPanel({ company, onClose }) {
         {isOpen && (
           <div className="p-4 space-y-3 text-sm">
             <p>
-              <strong className="text-green-300">Name:</strong>{' '}
+              <strong className="text-primary">Name:</strong>{' '}
               {company?.name || company?.['Original Name'] || 'N/A'}
             </p>
 
             <p className="break-all">
-              <strong className="text-green-300">Domain:</strong>{' '}
+              <strong className="text-primary">Domain:</strong>{' '}
               {company?.domain ? (
                 siteHref ? (
                   <a
                     href={siteHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-primary hover:underline"
                     title="Open website"
                   >
                     {company.domain}
@@ -105,63 +105,63 @@ export function CompanyDetailsPanel({ company, onClose }) {
             </p>
 
             <p>
-              <strong className="text-green-300">Headquarters:</strong>{' '}
+              <strong className="text-primary">Headquarters:</strong>{' '}
               {company?.hq || 'N/A'}
             </p>
 
             <p>
-              <strong className="text-green-300">Country / Region:</strong>{' '}
+              <strong className="text-primary">Country / Region:</strong>{' '}
               {company?.countries || company?.country || 'N/A'}
             </p>
 
             <p>
-              <strong className="text-green-300">Industry:</strong>{' '}
+              <strong className="text-primary">Industry:</strong>{' '}
               {company?.industry || 'N/A'}
             </p>
 
             {company?.subindustry ? (
               <p>
-                <strong className="text-green-300">Subindustry:</strong>{' '}
+                <strong className="text-primary">Subindustry:</strong>{' '}
                 {company.subindustry}
               </p>
             ) : null}
 
             {company?.size ? (
               <p>
-                <strong className="text-green-300">Company Size:</strong>{' '}
+                <strong className="text-primary">Company Size:</strong>{' '}
                 {company.size}
               </p>
             ) : null}
 
             {company?.['Legal Name'] ? (
               <p className="break-all">
-                <strong className="text-green-300">Legal Name:</strong>{' '}
+                <strong className="text-primary">Legal Name:</strong>{' '}
                 {company['Legal Name']}
               </p>
             ) : null}
 
             {company?.slug ? (
               <p className="break-all">
-                <strong className="text-green-300">Slug:</strong> {company.slug}
+                <strong className="text-primary">Slug:</strong> {company.slug}
               </p>
             ) : null}
 
             {company?.keywords_cntxt ? (
               <p className="break-words">
-                <strong className="text-green-300">Keywords:</strong>{' '}
+                <strong className="text-primary">Keywords:</strong>{' '}
                 {company.keywords_cntxt}
               </p>
             ) : null}
 
             <p className="break-all">
-              <strong className="text-green-300">LinkedIn:</strong>{' '}
+              <strong className="text-primary">LinkedIn:</strong>{' '}
               {company?.linkedin_url ? (
                 linkedInHref ? (
                   <a
                     href={linkedInHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-primary hover:underline"
                     title="Open LinkedIn"
                   >
                     {company.linkedin_url}

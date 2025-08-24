@@ -16,7 +16,7 @@ export function JobsTable({ jobs, onSelect }) {
         {jobs.map((j) => (
           <tr
             key={j.job_id}
-            className="border-t border-gray-800 hover:bg-gray-800 cursor-pointer"
+            className="border-t hover:bg-gray-100 cursor-pointer"
             onClick={() => onSelect && onSelect(j.job_id)}
           >
             <td className="p-2">{j.status}</td>
@@ -25,9 +25,9 @@ export function JobsTable({ jobs, onSelect }) {
               {new Date(j.created_at).toLocaleString()}
             </td>
             <td className="p-2">
-              <div className="w-32 bg-gray-700 h-2 mb-1 flex">
+              <div className="w-32 bg-gray-200 h-2 mb-1 flex">
                 <div
-                  className="bg-green-500 h-2"
+                  className="bg-purple-600 h-2"
                   style={{ width: `${j.internal_pct}%` }}
                 />
                 <div
@@ -43,13 +43,13 @@ export function JobsTable({ jobs, onSelect }) {
             <td className="p-2 space-x-2">
               <button
                 disabled={j.status !== "completed"}
-                className="px-2 py-1 border border-green-500 rounded disabled:opacity-50"
+                className="px-2 py-1 border rounded disabled:opacity-50"
               >
                 Full CSV
               </button>
               <button
                 disabled={j.status !== "completed"}
-                className="px-2 py-1 border border-green-500 rounded disabled:opacity-50"
+                className="px-2 py-1 border rounded disabled:opacity-50"
               >
                 Failed
               </button>

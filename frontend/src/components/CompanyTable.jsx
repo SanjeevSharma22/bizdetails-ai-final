@@ -73,74 +73,74 @@ export function CompanyTable({ filters = {} }) {
   const endItem = Math.min(page * pageSize, total);
 
   return (
-    <div className="relative text-green-400 font-mono">
+    <div className="relative">
       <div className="overflow-x-auto">
-        <table className="min-w-full border border-green-500">
-          <thead className="bg-gray-900">
+        <table className="min-w-full border border-gray-200">
+          <thead className="bg-gray-50">
             <tr>
               <th
-                className="px-4 py-2 border border-green-500 cursor-pointer"
+                className="px-4 py-2 border border-gray-200 cursor-pointer"
                 onClick={() => handleSort("name")}
               >
                 Company Name
               </th>
               <th
-                className="px-4 py-2 border border-green-500 cursor-pointer"
+                className="px-4 py-2 border border-gray-200 cursor-pointer"
                 onClick={() => handleSort("domain")}
               >
                 Domain
               </th>
               <th
-                className="px-4 py-2 border border-green-500 cursor-pointer"
+                className="px-4 py-2 border border-gray-200 cursor-pointer"
                 onClick={() => handleSort("hq")}
               >
                 Headquarters
               </th>
               <th
-                className="px-4 py-2 border border-green-500 cursor-pointer"
+                className="px-4 py-2 border border-gray-200 cursor-pointer"
                 onClick={() => handleSort("size")}
               >
                 Employees
               </th>
               <th
-                className="px-4 py-2 border border-green-500 cursor-pointer"
+                className="px-4 py-2 border border-gray-200 cursor-pointer"
                 onClick={() => handleSort("industry")}
               >
                 Industry
               </th>
-              <th className="px-4 py-2 border border-green-500">LinkedIn</th>
+              <th className="px-4 py-2 border border-gray-200">LinkedIn</th>
             </tr>
           </thead>
           <tbody>
             {companies.map((c) => (
               <tr
                 key={c.id}
-                className="hover:bg-gray-800 transition-colors cursor-pointer"
+                className="hover:bg-gray-100 transition-colors cursor-pointer"
                 onClick={() => setSelected(c)}
               >
-                <td className="px-4 py-2 border border-green-500">
+                <td className="px-4 py-2 border border-gray-200">
                   {c.name || "N/A"}
                 </td>
-                <td className="px-4 py-2 border border-green-500">
+                <td className="px-4 py-2 border border-gray-200">
                   {c.domain}
                 </td>
-                <td className="px-4 py-2 border border-green-500">
+                <td className="px-4 py-2 border border-gray-200">
                   {c.hq || "N/A"}
                 </td>
-                <td className="px-4 py-2 border border-green-500">
+                <td className="px-4 py-2 border border-gray-200">
                   {c.size || "N/A"}
                 </td>
-                <td className="px-4 py-2 border border-green-500">
+                <td className="px-4 py-2 border border-gray-200">
                   {c.industry || "N/A"}
                 </td>
-                <td className="px-4 py-2 border border-green-500 text-center">
+                <td className="px-4 py-2 border border-gray-200 text-center">
                   {c.linkedin_url ? (
                     <a
                       href={formatLinkedInUrl(c.linkedin_url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
-                      className="text-blue-400 hover:underline"
+                      className="text-primary hover:underline"
                     >
                       Link
                     </a>
@@ -167,7 +167,7 @@ export function CompanyTable({ filters = {} }) {
               setPageSize(Number(e.target.value));
               setPage(1);
             }}
-            className="bg-gray-900 border border-green-500 rounded px-2 py-1"
+            className="border rounded px-2 py-1"
           >
             {[10, 20, 50, 100].map((size) => (
               <option key={size} value={size}>
@@ -180,7 +180,7 @@ export function CompanyTable({ filters = {} }) {
           <button
             onClick={() => setPage((p) => p - 1)}
             disabled={page === 1}
-            className="px-2 py-1 border border-green-500 rounded disabled:opacity-50"
+            className="px-2 py-1 border rounded disabled:opacity-50"
           >
             Previous
           </button>
@@ -193,8 +193,8 @@ export function CompanyTable({ filters = {} }) {
               <button
                 key={p}
                 onClick={() => setPage(p)}
-                className={`px-2 py-1 border border-green-500 rounded ${
-                  p === page ? "bg-green-500 text-black" : ""
+                className={`px-2 py-1 border rounded ${
+                  p === page ? "bg-purple-600 text-white" : ""
                 }`}
               >
                 {p}
@@ -204,7 +204,7 @@ export function CompanyTable({ filters = {} }) {
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={page === totalPages}
-            className="px-2 py-1 border border-green-500 rounded disabled:opacity-50"
+            className="px-2 py-1 border rounded disabled:opacity-50"
           >
             Next
           </button>

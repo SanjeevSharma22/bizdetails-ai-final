@@ -48,51 +48,45 @@ export function ResultsView({ results }) {
   };
 
   return (
-    <div className="text-green-400 font-mono">
+    <div>
       <div className="flex gap-4 mb-4">
-        <button
-          onClick={downloadCSV}
-          className="px-4 py-2 bg-gray-900 border border-green-500 rounded hover:bg-gray-800"
-        >
+        <button onClick={downloadCSV} className="btn btn-primary">
           Download Enriched CSV
         </button>
-        <button
-          onClick={saveResults}
-          className="px-4 py-2 bg-gray-900 border border-green-500 rounded hover:bg-gray-800"
-        >
+        <button onClick={saveResults} className="btn btn-secondary">
           Save to My List
         </button>
       </div>
-      <table className="min-w-full text-left border border-green-500">
-        <thead className="bg-gray-900">
+      <table className="min-w-full text-left border border-gray-200">
+        <thead className="bg-gray-50">
           <tr>
-            <th className="border border-green-500 px-2">Company Name</th>
-            <th className="border border-green-500 px-2">Website</th>
-            <th className="border border-green-500 px-2">Headquarters</th>
-            <th className="border border-green-500 px-2">Industry</th>
-            <th className="border border-green-500 px-2">Employee Size</th>
-            <th className="border border-green-500 px-2">Company LinkedIn</th>
+            <th className="border border-gray-200 px-2">Company Name</th>
+            <th className="border border-gray-200 px-2">Website</th>
+            <th className="border border-gray-200 px-2">Headquarters</th>
+            <th className="border border-gray-200 px-2">Industry</th>
+            <th className="border border-gray-200 px-2">Employee Size</th>
+            <th className="border border-gray-200 px-2">Company LinkedIn</th>
           </tr>
         </thead>
         <tbody>
           {results.map((r) => (
-            <tr key={r.id} className="hover:bg-gray-800">
-              <td className="border border-green-500 px-2">{r.companyName}</td>
-              <td className="border border-green-500 px-2">{r.domain}</td>
-              <td className="border border-green-500 px-2">{r.hq || "N/A"}</td>
-              <td className="border border-green-500 px-2">
+            <tr key={r.id} className="hover:bg-gray-100">
+              <td className="border border-gray-200 px-2">{r.companyName}</td>
+              <td className="border border-gray-200 px-2">{r.domain}</td>
+              <td className="border border-gray-200 px-2">{r.hq || "N/A"}</td>
+              <td className="border border-gray-200 px-2">
                 {r.industry || "N/A"}
               </td>
-              <td className="border border-green-500 px-2">
+              <td className="border border-gray-200 px-2">
                 {r.size || "N/A"}
               </td>
-              <td className="border border-green-500 px-2">
+              <td className="border border-gray-200 px-2">
                 {r.linkedin_url ? (
                   <a
                     href={formatLinkedInUrl(r.linkedin_url)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:underline"
+                    className="text-primary hover:underline"
                   >
                     Link
                   </a>
