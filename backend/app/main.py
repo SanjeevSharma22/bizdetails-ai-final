@@ -6,7 +6,7 @@ import json
 from io import StringIO, TextIOWrapper
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,7 +33,7 @@ init_db()
 def log_activity(user: User, action: str) -> None:
     """Append a simple activity record to the user's log."""
     events = list(user.activity_log or [])
-    events.append({"action": action, "timestamp": datetime.utcnow().isoformat()})
+    events.append({"action": action, "timestamp": datetime.now(timezone.utc).isoformat()})
     user.activity_log = events
 
 # --- App ---
@@ -505,7 +505,7 @@ def signup(
         hashed_password=hashed_password,
         full_name=credentials.full_name or credentials.email,
         role=credentials.role or "User",
-        activity_log=[{"action": "signup", "timestamp": datetime.utcnow().isoformat()}],
+        activity_log=[{"action": "signup", "timestamp": datetime.now(timezone.utc).isoformat()}],
     )
     db.add(user)
     db.commit()
@@ -521,7 +521,7 @@ def signin(
     user = db.query(User).filter(User.email == credentials.email).first()
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    user.last_login = datetime.utcnow()
+    user.last_login = datetime.now(timezone.utc)
     log_activity(user, "signin")
     db.commit()
     access_token = authorize.create_access_token(subject=user.email)
@@ -583,7 +583,10 @@ async def process(
     TASK_RESULTS[task_id] = enriched
     if user:
         user.enrichment_count += 1
-        user.last_enrichment_at = datetime.utcnow()
+        user.last_enrichment_at = datetime.now(timezone.utc)
+        user.last_file_name = None
+        user.last_accounts_pushed = len(rows)
+        user.last_accounts_enriched = len(enriched)
         log_activity(user, "enrichment")
         db.commit()
     return {"task_id": task_id}
@@ -640,7 +643,7 @@ async def create_job(
         deduped, db
     )
     job_id = str(uuid.uuid4())
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     meta = JobMeta(
         job_id=job_id,
         status="completed",
@@ -658,7 +661,10 @@ async def create_job(
     user = db.query(User).filter(User.email == current_user_email).first()
     if user:
         user.enrichment_count += 1
-        user.last_enrichment_at = datetime.utcnow()
+        user.last_enrichment_at = datetime.now(timezone.utc)
+        user.last_file_name = file.filename
+        user.last_accounts_pushed = len(deduped)
+        user.last_accounts_enriched = len(deduped)
         log_activity(user, "job_enrichment")
         db.commit()
     return {"job_id": job_id}
@@ -830,13 +836,16 @@ def dashboard(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     last_job = None
-    if JOB_STORE:
-        latest = max(JOB_STORE.values(), key=lambda j: j.meta.created_at)
-        last_meta = latest.meta
+    if (
+        user.last_file_name
+        or user.last_accounts_pushed
+        or user.last_accounts_enriched
+    ):
         last_job = {
-            "file_name": last_meta.file_name,
-            "total_records": last_meta.total_records,
-            "processed_records": last_meta.processed_records,
+            "file_name": user.last_file_name,
+            "total_records": user.last_accounts_pushed,
+            "processed_records": user.last_accounts_enriched,
+            "timestamp": user.last_enrichment_at,
         }
     return {
         "stats": {
@@ -945,8 +954,10 @@ async def admin_company_upload(
     created = 0
     updated = 0
     errors = []
+    total_rows = 0
 
     for idx, row in enumerate(reader, start=1):
+        total_rows += 1
         try:
             def get(field: str):
                 return row.get(mapping.get(field, field))
@@ -1020,7 +1031,10 @@ async def admin_company_upload(
     # Record this upload as an enrichment action for dashboard stats
     if user:
         user.enrichment_count += 1
-        user.last_enrichment_at = datetime.utcnow()
+        user.last_enrichment_at = datetime.now(timezone.utc)
+        user.last_file_name = file.filename
+        user.last_accounts_pushed = total_rows
+        user.last_accounts_enriched = created + updated
         log_activity(user, "admin_upload")
         db.commit()
 

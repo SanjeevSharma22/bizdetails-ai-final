@@ -13,8 +13,11 @@ class User(Base):
     full_name = Column(String, nullable=False)
     role = Column(String, nullable=False)
     enrichment_count = Column(Integer, default=0, nullable=False)
-    last_login = Column(DateTime, nullable=True)
-    last_enrichment_at = Column(DateTime, nullable=True)
+    last_login = Column(DateTime(timezone=True), nullable=True)
+    last_enrichment_at = Column(DateTime(timezone=True), nullable=True)
+    last_file_name = Column(String, nullable=True)
+    last_accounts_pushed = Column(Integer, default=0, nullable=False)
+    last_accounts_enriched = Column(Integer, default=0, nullable=False)
     activity_log = Column(JSON, default=list)
     account_status = Column(String, default="Active", nullable=False)
 

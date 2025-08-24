@@ -47,6 +47,20 @@ def init_db():
                 conn.execute(
                     text("ALTER TABLE users ADD COLUMN last_enrichment_at TIMESTAMP")
                 )
+            if "last_file_name" not in user_columns:
+                conn.execute(text("ALTER TABLE users ADD COLUMN last_file_name VARCHAR"))
+            if "last_accounts_pushed" not in user_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN last_accounts_pushed INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
+            if "last_accounts_enriched" not in user_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE users ADD COLUMN last_accounts_enriched INTEGER NOT NULL DEFAULT 0"
+                    )
+                )
             if "activity_log" not in user_columns:
                 if engine.dialect.name == "postgresql":
                     conn.execute(

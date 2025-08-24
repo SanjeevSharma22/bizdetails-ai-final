@@ -63,6 +63,9 @@ def test_signup_and_tracking(tmp_path):
     assert user.account_status == "Active"
     assert user.last_login is None
     assert user.activity_log and user.activity_log[0]["action"] == "signup"
+    assert user.last_file_name is None
+    assert user.last_accounts_pushed == 0
+    assert user.last_accounts_enriched == 0
 
     # Sign in to update last_login
     resp = client.post(
@@ -81,6 +84,8 @@ def test_signup_and_tracking(tmp_path):
     db.refresh(user)
     assert user.enrichment_count == 1
     assert user.last_enrichment_at is not None
+    assert user.last_accounts_pushed == 0
+    assert user.last_accounts_enriched == 0
     assert any(a["action"] == "enrichment" for a in user.activity_log)
     db.close()
 
