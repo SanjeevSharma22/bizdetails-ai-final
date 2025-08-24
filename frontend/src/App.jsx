@@ -172,13 +172,13 @@ export default function App() {
       case "processing":
         return (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <div className="w-64 bg-gray-800 h-2 rounded">
+            <div className="w-64 bg-gray-200 h-2 rounded">
               <div
-                className="h-full bg-green-500 transition-all"
+                className="h-full bg-blue-500 transition-all"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="text-green-400">{progress}%</p>
+            <p className="text-blue-600">{progress}%</p>
           </div>
         );
       default:
@@ -199,19 +199,19 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-green-400 font-mono">
+    <div className="min-h-screen bg-white text-gray-900 font-sans">
       {showCompliance && (
         <ComplianceBanner onDismiss={() => setShowCompliance(false)} />
       )}
-      <header className="bg-gray-900 border-b border-green-500 shadow-sm">
+      <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl 2xl:max-w-none mx-auto px-4 sm:px-6 lg:px-8 2xl:px-16">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
-                <Database className="w-5 h-5 text-black" />
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Database className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-xl">BizDetails AI</h1>
-              <Badge variant="secondary" className="bg-gray-800 text-green-400">
+              <Badge variant="secondary" className="bg-blue-50 text-blue-700">
                 AI-Powered
               </Badge>
             </div>
@@ -220,7 +220,7 @@ export default function App() {
                 variant="outline"
                 size="sm"
                 onClick={() => setShowChat(!showChat)}
-                className="flex items-center gap-2 border-green-500 text-green-400"
+                className="flex items-center gap-2 border-blue-500 text-blue-600"
               >
                 <MessageCircle className="w-4 h-4" />
                 AI Assistant
@@ -232,7 +232,7 @@ export default function App() {
                   variant="ghost"
                   size="sm"
                   onClick={handleSignOut}
-                  className="text-green-400 hover:text-green-200"
+                  className="text-blue-600 hover:text-blue-800"
                 >
                   <LogOut className="w-4 h-4" />
                 </Button>
