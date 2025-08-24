@@ -82,3 +82,55 @@ def test_process_requires_token(tmp_path):
     assert user.enrichment_count == 1
     db.close()
 
+
+def test_process_records_file_name(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    with database.engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS company_updated (
+                    id INTEGER PRIMARY KEY,
+                    name VARCHAR,
+                    domain VARCHAR UNIQUE,
+                    countries VARCHAR,
+                    hq VARCHAR,
+                    industry VARCHAR,
+                    subindustry VARCHAR,
+                    keywords_cntxt VARCHAR,
+                    size VARCHAR,
+                    linkedin_url VARCHAR,
+                    slug VARCHAR,
+                    original_name VARCHAR,
+                    legal_name VARCHAR
+                )
+                """
+            )
+        )
+
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={"email": "file_user@example.com", "password": "secret", "fullName": "File User"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    data = [{"Domain": "example.com", "Company Name": "Example Co"}]
+
+    resp = client.post(
+        "/api/process",
+        json={"data": data, "file_name": "test.csv"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+
+    resp = client.get("/api/dashboard", headers=headers)
+    assert resp.status_code == 200
+    last_job = resp.json()["stats"]["last_job"]
+    assert last_job["file_name"] == "test.csv"
+    assert last_job["total_records"] == 1
+    assert last_job["processed_records"] == 1
+
