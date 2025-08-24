@@ -1,0 +1,89 @@
+:root {
+  --color-background: #FFFFFF;
+  --color-primary: #5F2E9F;
+  --color-accent: #B794F4;
+  --color-text: #333333;
+  --radius: 1rem;
+  --shadow-card: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: 'Inter', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-primary);
+}
+
+.card {
+  background-color: var(--color-background);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: #FFFFFF;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 2px solid var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--color-accent);
+  color: #FFFFFF;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: inherit;
+  border: none;
+}
+
+.btn-ghost:hover {
+  background-color: var(--color-accent);
+}
+
+input, textarea, select {
+  background-color: #FFFFFF;
+  border: 1px solid #CCCCCC;
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.text-primary {
+  color: var(--color-primary);
+}
+
+.text-accent {
+  color: var(--color-accent);
+}

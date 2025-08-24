@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Database, Globe, Brain, Building2, Check } from "lucide-react";
+import { Button } from "./ui/button";
 
 export function LandingPage({ onSignIn }) {
   const [email, setEmail] = useState("");
@@ -105,7 +106,7 @@ export function LandingPage({ onSignIn }) {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 flex flex-col">
+    <div className="min-h-screen bg-white flex flex-col">
       <header className="w-full border-b border-gray-200">
         <div className="max-w-7xl 2xl:max-w-none mx-auto flex items-center justify-between py-4 px-6 2xl:px-16">
           <div className="flex items-center space-x-3">
@@ -119,9 +120,9 @@ export function LandingPage({ onSignIn }) {
               </p>
             </div>
           </div>
-          <button className="px-4 py-2 text-sm text-purple-700 bg-purple-50 rounded-full">
+          <Button variant="outline" className="text-sm">
             Beta Access
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -138,7 +139,7 @@ export function LandingPage({ onSignIn }) {
               </span>{" "}
               Precision
             </h2>
-            <p className="text-gray-700 mb-6">
+            <p className="mb-6">
               Transform incomplete company data into comprehensive business
               intelligence. Map domains, validate details, and enrich your
               database with AI-powered accuracy.
@@ -171,7 +172,7 @@ export function LandingPage({ onSignIn }) {
 
           <form
             onSubmit={handleSubmit}
-            className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 w-full max-w-md mx-auto"
+            className="card p-8 w-full max-w-md mx-auto"
           >
             <h2 className="text-xl font-semibold mb-6 text-center">
               Get Started – Access the most comprehensive business data
@@ -183,7 +184,7 @@ export function LandingPage({ onSignIn }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email Address"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full"
               />
               {isSignUp && (
                 <>
@@ -192,14 +193,14 @@ export function LandingPage({ onSignIn }) {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Username"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full"
                   />
                   <input
                     type="text"
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                     placeholder="Role"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full"
                   />
                 </>
               )}
@@ -208,14 +209,11 @@ export function LandingPage({ onSignIn }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full"
               />
-              <button
-                type="submit"
-                className="w-full py-3 rounded-md text-white font-medium bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition shadow"
-              >
+              <Button type="submit" className="w-full">
                 {isSignUp ? "Sign up" : "Login"}
-              </button>
+              </Button>
               <p className="text-sm text-center">
                 {isSignUp ? (
                   <>
@@ -226,7 +224,7 @@ export function LandingPage({ onSignIn }) {
                         setIsSignUp(false);
                         window.location.hash = "";
                       }}
-                      className="text-blue-600 hover:underline"
+                      className="text-primary hover:underline"
                     >
                       Login
                     </button>
@@ -240,7 +238,7 @@ export function LandingPage({ onSignIn }) {
                         setIsSignUp(true);
                         window.location.hash = "signup";
                       }}
-                      className="text-blue-600 hover:underline"
+                      className="text-primary hover:underline"
                     >
                       Sign up
                     </button>
