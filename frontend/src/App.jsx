@@ -16,6 +16,7 @@ import { JobDashboard } from "./components/JobDashboard";
 import { ColumnMappingScreen } from "./components/ColumnMappingScreen";
 import { ResultsView } from "./components/ResultsView";
 import { Dashboard } from "./components/Dashboard";
+import { UserDashboard } from "./components/UserDashboard";
 import { ChatPanel } from "./components/ChatPanel";
 import { ComplianceBanner } from "./components/ComplianceBanner";
 import { LandingPage } from "./components/LandingPage";
@@ -281,6 +282,7 @@ export default function App() {
               </TabsList>
 
               <TabsContent value="dashboard" className="space-y-6">
+                <UserDashboard token={user.token} />
                 <JobDashboard />
               </TabsContent>
               <TabsContent value="company-data" className="space-y-6">

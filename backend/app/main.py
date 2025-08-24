@@ -29,6 +29,13 @@ from .deepseek import fetch_company_data, DeepSeekError
 Base.metadata.create_all(bind=engine)
 init_db()
 
+
+def log_activity(user: User, action: str) -> None:
+    """Append a simple activity record to the user's log."""
+    events = list(user.activity_log or [])
+    events.append({"action": action, "timestamp": datetime.utcnow().isoformat()})
+    user.activity_log = events
+
 # --- App ---
 app = FastAPI(title="BizDetails AI API")
 app.add_middleware(
@@ -497,6 +504,7 @@ def signup(
         hashed_password=hashed_password,
         full_name=credentials.full_name or credentials.email,
         role=credentials.role or "User",
+        activity_log=[{"action": "signup", "timestamp": datetime.utcnow().isoformat()}],
     )
     db.add(user)
     db.commit()
@@ -513,6 +521,7 @@ def signin(
     if not user or not pwd_context.verify(credentials.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     user.last_login = datetime.utcnow()
+    log_activity(user, "signin")
     db.commit()
     access_token = authorize.create_access_token(subject=user.email)
     return {"access_token": access_token}
@@ -573,6 +582,8 @@ async def process(
     TASK_RESULTS[task_id] = enriched
     if user:
         user.enrichment_count += 1
+        user.last_enrichment_at = datetime.utcnow()
+        log_activity(user, "enrichment")
         db.commit()
     return {"task_id": task_id}
 
@@ -645,6 +656,8 @@ async def create_job(
     user = db.query(User).filter(User.email == current_user_email).first()
     if user:
         user.enrichment_count += 1
+        user.last_enrichment_at = datetime.utcnow()
+        log_activity(user, "job_enrichment")
         db.commit()
     return {"job_id": job_id}
 
@@ -808,9 +821,20 @@ def list_company_updated(
     }
 
 @app.get("/api/dashboard")
-async def dashboard():
-    # TODO: wire real stats
-    return {"stats": {}}
+def dashboard(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
+    authorize.jwt_required()
+    email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "stats": {
+            "enrichment_count": user.enrichment_count,
+            "last_login": user.last_login,
+            "last_enrichment_at": user.last_enrichment_at,
+            "activity_log": user.activity_log or [],
+        }
+    }
 
 class ChatRequest(BaseModel):
     message: str
