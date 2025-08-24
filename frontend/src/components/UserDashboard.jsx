@@ -18,44 +18,73 @@ export function UserDashboard({ token }) {
     return <div className="card p-4">Loading...</div>;
   }
 
+  const lastJob = stats.last_job || null;
+  const progress = lastJob && lastJob.total_records
+    ? Math.round((lastJob.processed_records / lastJob.total_records) * 100)
+    : 0;
+
   return (
-    <div className="card p-4 space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
-        <div>
-          <div className="text-lg font-bold">{stats.enrichment_count || 0}</div>
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="card p-4 flex flex-col items-center text-center space-y-1">
+          <div className="text-2xl font-bold">{stats.enrichment_count || 0}</div>
           <div className="text-xs text-primary">Enrichment Jobs</div>
         </div>
-        <div>
-          <div className="text-lg font-bold">
+        <div className="card p-4 flex flex-col items-center text-center space-y-1">
+          <div className="text-2xl font-bold">
             {stats.last_login ? new Date(stats.last_login).toLocaleString() : "—"}
           </div>
           <div className="text-xs text-primary">Last Login</div>
         </div>
-        <div>
-          <div className="text-lg font-bold">
+        <div className="card p-4 flex flex-col items-center text-center space-y-1">
+          <div className="text-2xl font-bold">
             {stats.last_enrichment_at
               ? new Date(stats.last_enrichment_at).toLocaleString()
               : "—"}
           </div>
           <div className="text-xs text-primary">Last Enrichment</div>
         </div>
-      </div>
-      {stats.activity_log && stats.activity_log.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-2">Recent Activity</h3>
-          <ul className="text-xs space-y-1">
-            {stats.activity_log
-              .slice()
-              .reverse()
-              .slice(0, 5)
-              .map((a, i) => (
-                <li key={i}>
-                  {new Date(a.timestamp).toLocaleString()} – {a.action}
-                </li>
-              ))}
-          </ul>
+        <div className="card p-4 text-sm space-y-2">
+          <div className="text-center text-lg font-bold">Enrichment Results</div>
+          <div>
+            File Name: <span className="font-medium">{lastJob?.file_name || "—"}</span>
+          </div>
+          <div>Accounts Pushed: {lastJob?.total_records || 0}</div>
+          <div>Accounts Enriched: {lastJob?.processed_records || 0}</div>
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-primary h-2 rounded-full"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <div className="text-right text-xs">{progress}%</div>
         </div>
-      )}
+      </div>
+
+      <div className="card p-4">
+        <h3 className="text-sm font-semibold mb-2">Recent Activity</h3>
+        {stats.activity_log && stats.activity_log.length > 0 ? (
+          <div className="max-h-48 overflow-y-auto">
+            <ul className="relative border-l border-gray-200 pl-4 space-y-4 text-xs">
+              {stats.activity_log
+                .slice()
+                .reverse()
+                .map((a, i) => (
+                  <li key={i} className="relative">
+                    <span className="absolute -left-1.5 top-1 w-3 h-3 bg-primary rounded-full"></span>
+                    <time className="block text-gray-500">
+                      {new Date(a.timestamp).toLocaleString()}
+                    </time>
+                    <p>{a.action}</p>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500">No recent activity.</div>
+        )}
+      </div>
     </div>
   );
 }
+

@@ -128,6 +128,7 @@ class JobMeta(BaseModel):
     internal_fields: int
     ai_fields: int
     field_stats: Dict[str, FieldStat]
+    file_name: Optional[str] = None
 
 
 class JobData(BaseModel):
@@ -650,6 +651,7 @@ async def create_job(
         internal_fields=internal_total,
         ai_fields=ai_total,
         field_stats=stats,
+        file_name=file.filename,
     )
     JOB_STORE[job_id] = JobData(meta=meta, results=results)
     current_user_email = authorize.get_jwt_subject()
@@ -827,12 +829,22 @@ def dashboard(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    last_job = None
+    if JOB_STORE:
+        latest = max(JOB_STORE.values(), key=lambda j: j.meta.created_at)
+        last_meta = latest.meta
+        last_job = {
+            "file_name": last_meta.file_name,
+            "total_records": last_meta.total_records,
+            "processed_records": last_meta.processed_records,
+        }
     return {
         "stats": {
             "enrichment_count": user.enrichment_count,
             "last_login": user.last_login,
             "last_enrichment_at": user.last_enrichment_at,
             "activity_log": user.activity_log or [],
+            "last_job": last_job,
         }
     }
 
