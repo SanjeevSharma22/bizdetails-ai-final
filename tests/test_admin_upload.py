@@ -206,3 +206,33 @@ def test_upload_handles_header_whitespace(tmp_path):
     row = _fetch_company(database.engine, "acme.com")
     assert row["name"] == "Acme Corp"
     assert row["hq"] == "US"
+
+
+def test_upload_updates_user_stats(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("DELETE FROM company_updated"))
+    client = TestClient(app)
+    headers = _signup_admin(client)
+    db = database.SessionLocal()
+    user = db.query(models.User).filter(models.User.email == "admin@example.com").first()
+    start_count = user.enrichment_count
+    prev_last = user.last_enrichment_at
+    db.close()
+
+    csv_content = "domain\nexample.com\n"
+    files = {"file": ("data.csv", csv_content, "text/csv")}
+    data = {"mode": "override"}
+
+    resp = client.post(
+        "/api/admin/company-updated/upload", headers=headers, files=files, data=data
+    )
+    assert resp.status_code == 200
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter(models.User.email == "admin@example.com").first()
+    assert user.enrichment_count == start_count + 1
+    assert user.last_enrichment_at is not None and user.last_enrichment_at != prev_last
+    assert any(a["action"] == "admin_upload" for a in user.activity_log)
+    db.close()

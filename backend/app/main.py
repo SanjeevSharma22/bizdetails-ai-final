@@ -1005,4 +1005,11 @@ async def admin_company_upload(
             db.rollback()
             errors.append({"row": idx, "error": str(e)})
 
+    # Record this upload as an enrichment action for dashboard stats
+    if user:
+        user.enrichment_count += 1
+        user.last_enrichment_at = datetime.utcnow()
+        log_activity(user, "admin_upload")
+        db.commit()
+
     return {"created": created, "updated": updated, "errors": errors}
