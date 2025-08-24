@@ -234,5 +234,8 @@ def test_upload_updates_user_stats(tmp_path):
     user = db.query(models.User).filter(models.User.email == "admin@example.com").first()
     assert user.enrichment_count == start_count + 1
     assert user.last_enrichment_at is not None and user.last_enrichment_at != prev_last
+    assert user.last_file_name == "data.csv"
+    assert user.last_accounts_pushed == 1
+    assert user.last_accounts_enriched == 1
     assert any(a["action"] == "admin_upload" for a in user.activity_log)
     db.close()

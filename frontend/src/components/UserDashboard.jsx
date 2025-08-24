@@ -51,6 +51,9 @@ export function UserDashboard({ token }) {
           </div>
           <div>Accounts Pushed: {lastJob?.total_records || 0}</div>
           <div>Accounts Enriched: {lastJob?.processed_records || 0}</div>
+          <div>
+            Timestamp: {lastJob?.timestamp ? new Date(lastJob.timestamp).toLocaleString() : "—"}
+          </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-primary h-2 rounded-full"
