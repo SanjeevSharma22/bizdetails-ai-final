@@ -151,3 +151,65 @@ def test_signup_without_fullname_defaults_to_email(tmp_path):
     assert user.username == "noname@example.com"
     assert user.role == "User"
     db.close()
+
+
+def test_activity_log_capped(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    # `setup_app` already imports main, so we can retrieve the module here
+    main = importlib.import_module("backend.app.main")
+
+    db = database.SessionLocal()
+    user = models.User(
+        email="log@example.com",
+        username="loguser",
+        hashed_password="x",
+        full_name="Log User",
+        role="User",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    # Generate more than 10 activities
+    for i in range(15):
+        main.log_activity(user, f"event{i}")
+    db.commit()
+    db.refresh(user)
+
+    assert len(user.activity_log) == 10
+    assert user.activity_log[0]["action"] == "event5"
+    assert user.activity_log[-1]["action"] == "event14"
+    db.close()
+
+
+def test_process_retains_last_file_name(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={"email": "file@example.com", "password": "secret"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    db = database.SessionLocal()
+    user = db.query(models.User).filter_by(email="file@example.com").first()
+
+    # First process call with file_name should set last_file_name
+    resp = client.post(
+        "/api/process",
+        json={"data": [], "file_name": "first.csv"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.last_file_name == "first.csv"
+
+    # Second process call without file_name should not clear it
+    resp = client.post("/api/process", json={"data": []}, headers=headers)
+    assert resp.status_code == 200
+    db.refresh(user)
+    assert user.last_file_name == "first.csv"
+    db.close()
