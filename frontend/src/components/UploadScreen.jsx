@@ -47,12 +47,9 @@ export function UploadScreen({ onFileUploaded }) {
   };
 
   return (
-    <div className="p-8 border border-green-500 rounded bg-gray-900 text-center text-green-400">
+    <div className="card p-8 text-center">
       <p className="mb-4">Upload a .csv file with a Domain or Company Name column.</p>
-      <button
-        onClick={handleFileSelect}
-        className="px-4 py-2 bg-black border border-green-500 rounded hover:bg-gray-800"
-      >
+      <button onClick={handleFileSelect} className="btn btn-primary">
         Upload CSV
       </button>
       <input
@@ -63,9 +60,9 @@ export function UploadScreen({ onFileUploaded }) {
         className="hidden"
       />
       {uploading && (
-        <div className="mt-4 w-full bg-gray-800 h-2 rounded">
+        <div className="mt-4 w-full bg-gray-200 h-2 rounded">
           <div
-            className="h-full bg-green-500 transition-all"
+            className="h-full bg-purple-600 transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>

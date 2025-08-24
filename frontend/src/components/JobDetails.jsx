@@ -17,7 +17,7 @@ export function JobDetails({ jobId, onClose }) {
   const aiPct = total ? (meta.ai_fields / total) * 100 : 0;
 
   return (
-    <div className="mt-4 p-4 border border-green-500 rounded bg-gray-900">
+    <div className="mt-4 card p-4">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg">Job Details</h2>
         <button onClick={onClose} className="text-sm underline">
@@ -25,15 +25,15 @@ export function JobDetails({ jobId, onClose }) {
         </button>
       </div>
       <div className="grid sm:grid-cols-4 gap-4 mb-4 text-center">
-        <div className="bg-black p-2 rounded">Total {meta.total_records}</div>
-        <div className="bg-black p-2 rounded">Enriched {meta.processed_records}</div>
-        <div className="bg-black p-2 rounded">Internal {meta.internal_fields}</div>
-        <div className="bg-black p-2 rounded">AI {meta.ai_fields}</div>
+        <div className="bg-gray-100 p-2 rounded">Total {meta.total_records}</div>
+        <div className="bg-gray-100 p-2 rounded">Enriched {meta.processed_records}</div>
+        <div className="bg-gray-100 p-2 rounded">Internal {meta.internal_fields}</div>
+        <div className="bg-gray-100 p-2 rounded">AI {meta.ai_fields}</div>
       </div>
       <div className="mb-4">
-        <div className="w-full bg-gray-700 h-4 flex">
+        <div className="w-full bg-gray-200 h-4 flex">
           <div
-            className="bg-green-500"
+            className="bg-purple-600"
             style={{ width: `${internalPct}%` }}
           />
           <div className="bg-blue-500" style={{ width: `${aiPct}%` }} />
@@ -54,12 +54,12 @@ export function JobDetails({ jobId, onClose }) {
           </thead>
           <tbody>
             {results.map((r) => (
-              <tr key={r.id} className="border-t border-gray-800">
+              <tr key={r.id} className="border-t border-gray-200">
                 <td className="p-1">{r.companyName}</td>
                 <td className="p-1">
                   {r.domain}
                   {r.sources.domain && (
-                    <span className="ml-1 px-1 text-[10px] rounded bg-gray-700">
+                    <span className="ml-1 px-1 text-[10px] rounded bg-gray-200">
                       {r.sources.domain === "internal" ? "INT" : "AI"}
                     </span>
                   )}
@@ -67,7 +67,7 @@ export function JobDetails({ jobId, onClose }) {
                 <td className="p-1">
                   {r.industry}
                   {r.sources.industry && (
-                    <span className="ml-1 px-1 text-[10px] rounded bg-gray-700">
+                    <span className="ml-1 px-1 text-[10px] rounded bg-gray-200">
                       {r.sources.industry === "internal" ? "INT" : "AI"}
                     </span>
                   )}

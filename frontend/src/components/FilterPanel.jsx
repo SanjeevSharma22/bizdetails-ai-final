@@ -142,18 +142,18 @@ export function FilterPanel({ onApply, onClear }) {
   };
 
   return (
-    <div className="bg-gray-900 border border-green-500 p-4 rounded w-full md:w-64 mb-4 md:mb-0 md:mr-4 text-green-400">
-      <h2 className="text-lg font-semibold mb-4 text-green-400">Filters</h2>
+    <div className="card p-4 w-full md:w-64 mb-4 md:mb-0 md:mr-4">
+      <h2 className="text-lg font-semibold mb-4 text-primary">Filters</h2>
 
       {/* Company Name */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-green-400">Company Name</label>
+        <label className="block text-sm font-medium mb-1">Company Name</label>
         <input
           type="text"
           list="company-suggestions"
           value={companyName}
           onChange={(e) => setCompanyName(e.target.value)}
-          className="w-full p-2 border border-green-500 rounded bg-black text-green-400 placeholder-gray-500"
+          className="w-full p-2 border rounded"
           placeholder="Type a company name"
         />
         <datalist id="company-suggestions">
@@ -165,13 +165,13 @@ export function FilterPanel({ onApply, onClear }) {
 
       {/* Domain */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-green-400">Company Domain</label>
+        <label className="block text-sm font-medium mb-1">Company Domain</label>
         <input
           type="text"
           list="domain-suggestions"
           value={domain}
           onChange={(e) => setDomain(e.target.value)}
-          className="w-full p-2 border border-green-500 rounded bg-black text-green-400 placeholder-gray-500"
+          className="w-full p-2 border rounded"
           placeholder="https://example.com"
         />
         <datalist id="domain-suggestions">
@@ -183,14 +183,14 @@ export function FilterPanel({ onApply, onClear }) {
 
       {/* Employee Size */}
       <div className="mb-4">
-        <p className="text-sm font-medium mb-1 text-green-400">Number of Employees</p>
+        <p className="text-sm font-medium mb-1">Number of Employees</p>
         {ranges.map((r) => (
           <label key={r.label} className="flex items-center space-x-2 mb-1">
             <input
               type="checkbox"
               checked={selectedRanges.includes(r.label)}
               onChange={() => handleRangeChange(r.label)}
-              className="accent-green-500"
+              className="accent-purple-600"
             />
             <span>{r.label}</span>
           </label>
@@ -201,7 +201,7 @@ export function FilterPanel({ onApply, onClear }) {
             value={customMin}
             onChange={handleCustomMinChange}
             placeholder="Min"
-            className="w-20 p-1 border border-green-500 rounded bg-black text-green-400 placeholder-gray-500"
+            className="w-20 p-1 border rounded"
           />
           <span>-</span>
           <input
@@ -209,21 +209,21 @@ export function FilterPanel({ onApply, onClear }) {
             value={customMax}
             onChange={handleCustomMaxChange}
             placeholder="Max"
-            className="w-20 p-1 border border-green-500 rounded bg-black text-green-400 placeholder-gray-500"
+            className="w-20 p-1 border rounded"
           />
         </div>
       </div>
 
       {/* Headquarters */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-1 text-green-400">
+        <label className="block text-sm font-medium mb-1">
           Headquarters Location
         </label>
         <input
           type="text"
           value={hq}
           onChange={(e) => setHq(e.target.value)}
-          className="w-full p-2 border border-green-500 rounded bg-black text-green-400 placeholder-gray-500"
+          className="w-full p-2 border rounded"
           placeholder="City or Country"
         />
       </div>
@@ -232,13 +232,13 @@ export function FilterPanel({ onApply, onClear }) {
       <div className="flex space-x-2">
         <button
           onClick={applyFilters}
-          className="flex-1 px-4 py-2 bg-gray-900 border border-green-500 rounded text-green-400 hover:bg-gray-800"
+          className="flex-1 btn btn-primary"
         >
           Apply Filters
         </button>
         <button
           onClick={clearFilters}
-          className="flex-1 px-4 py-2 bg-black border border-green-500 rounded text-green-400 hover:bg-gray-900"
+          className="flex-1 btn btn-secondary"
         >
           Clear Filters
         </button>
