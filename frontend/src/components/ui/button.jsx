@@ -1,11 +1,15 @@
 import React from 'react';
 
-export function Button({ children, className = '', ...props }) {
+export function Button({ children, variant = 'primary', className = '', size, ...props }) {
+  const variants = {
+    primary: 'btn btn-primary',
+    outline: 'btn btn-secondary',
+    ghost: 'btn btn-ghost',
+  };
+  const variantClass = variants[variant] || variants.primary;
+
   return (
-    <button
-      className={`px-3 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50 ${className}`}
-      {...props}
-    >
+    <button className={`${variantClass} ${className}`} {...props}>
       {children}
     </button>
   );
