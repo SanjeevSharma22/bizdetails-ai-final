@@ -43,6 +43,23 @@ def init_db():
                 )
             if "last_login" not in user_columns:
                 conn.execute(text("ALTER TABLE users ADD COLUMN last_login TIMESTAMP"))
+            if "last_enrichment_at" not in user_columns:
+                conn.execute(
+                    text("ALTER TABLE users ADD COLUMN last_enrichment_at TIMESTAMP")
+                )
+            if "activity_log" not in user_columns:
+                if engine.dialect.name == "postgresql":
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN activity_log JSON DEFAULT '[]'::json"
+                        )
+                    )
+                else:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE users ADD COLUMN activity_log JSON DEFAULT '[]'"
+                        )
+                    )
             if "account_status" not in user_columns:
                 conn.execute(
                     text(

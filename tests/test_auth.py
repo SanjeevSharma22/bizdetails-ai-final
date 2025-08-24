@@ -62,6 +62,7 @@ def test_signup_and_tracking(tmp_path):
     assert user.enrichment_count == 0
     assert user.account_status == "Active"
     assert user.last_login is None
+    assert user.activity_log and user.activity_log[0]["action"] == "signup"
 
     # Sign in to update last_login
     resp = client.post(
@@ -71,6 +72,7 @@ def test_signup_and_tracking(tmp_path):
     assert resp.status_code == 200
     db.refresh(user)
     assert user.last_login is not None
+    assert any(a["action"] == "signin" for a in user.activity_log)
 
     # Process a request to increment enrichment_count
     headers = {"Authorization": f"Bearer {token}"}
@@ -78,6 +80,8 @@ def test_signup_and_tracking(tmp_path):
     assert resp.status_code == 200
     db.refresh(user)
     assert user.enrichment_count == 1
+    assert user.last_enrichment_at is not None
+    assert any(a["action"] == "enrichment" for a in user.activity_log)
     db.close()
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, JSON
 from sqlalchemy.dialects.postgresql import ARRAY
 from .database import Base
 
@@ -14,6 +14,8 @@ class User(Base):
     role = Column(String, nullable=False)
     enrichment_count = Column(Integer, default=0, nullable=False)
     last_login = Column(DateTime, nullable=True)
+    last_enrichment_at = Column(DateTime, nullable=True)
+    activity_log = Column(JSON, default=list)
     account_status = Column(String, default="Active", nullable=False)
 
 
