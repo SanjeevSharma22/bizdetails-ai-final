@@ -95,6 +95,7 @@ class UserCredentials(BaseModel):
 class ProcessRequest(BaseModel):
     data: List[Dict[str, Optional[str]]]
     mapping: Optional[Dict[str, str]] = None  # frontend maps to canonical headers
+    file_name: Optional[str] = None
 
 class ProcessedResult(BaseModel):
     id: int
@@ -584,7 +585,7 @@ async def process(
     if user:
         user.enrichment_count += 1
         user.last_enrichment_at = datetime.now(timezone.utc)
-        user.last_file_name = None
+        user.last_file_name = req.file_name
         user.last_accounts_pushed = len(rows)
         user.last_accounts_enriched = len(enriched)
         log_activity(user, "enrichment")
