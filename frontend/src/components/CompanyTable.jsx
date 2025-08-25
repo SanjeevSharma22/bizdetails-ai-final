@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { CompanyDetailsPanel } from "./CompanyDetailsPanel";
 
 const API = import.meta.env.VITE_API_BASE || "";
 
@@ -9,7 +8,6 @@ export function CompanyTable({ filters = {} }) {
     key: "name",
     direction: "asc",
   });
-  const [selected, setSelected] = useState(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -237,8 +235,7 @@ export function CompanyTable({ filters = {} }) {
             {companies.map((c) => (
               <tr
                 key={c.id}
-                className="hover:bg-gray-100 transition-colors cursor-pointer"
-                onClick={() => setSelected(c)}
+                className="hover:bg-gray-100 transition-colors"
               >
                 <td className="px-4 py-2 border border-gray-200">
                   <input
@@ -343,10 +340,6 @@ export function CompanyTable({ filters = {} }) {
         </div>
       </div>
 
-      <CompanyDetailsPanel
-        company={selected}
-        onClose={() => setSelected(null)}
-      />
     </div>
   );
 }
