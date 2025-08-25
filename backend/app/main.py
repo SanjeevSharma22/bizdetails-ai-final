@@ -20,6 +20,10 @@ from sqlalchemy import func, text, or_, and_, cast, Integer
 
 import pycountry
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
 from .normalization import normalize_company_name

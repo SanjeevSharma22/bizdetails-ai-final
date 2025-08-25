@@ -15,6 +15,16 @@ pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload
 ```
 
+The application expects a `.env` file in the working directory containing
+configuration values such as:
+
+```
+DEEPSEEK_API_KEY=your_api_key_here
+```
+
+If the file lives elsewhere, pass its path to `load_dotenv()` when starting
+the app.
+
 ## Frontend
 
 Frontend implementation is not yet provided. A future iteration would use React and Tailwind CSS to implement the upload flow, results view, dashboard, and chat panel described in the project plan.
