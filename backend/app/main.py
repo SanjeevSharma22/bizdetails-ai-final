@@ -411,6 +411,61 @@ def enrich_domains(
                 )
             )
         else:
+            try:
+                fetched = fetch_company_data(
+                    name=original_name or None,
+                    domain=domain or None,
+                    linkedin_url=row.get("LinkedIn URL") or None,
+                )
+
+                company_name = fetched.get("name") or original_name
+                fetched_domain = fetched.get("domain") or domain
+                hq = fetched.get("hq") or (row.get("HQ") or "")
+                size = fetched.get("size") or (
+                    row.get("Company Size") or row.get("Size") or ""
+                )
+                linkedin_url = fetched.get("linkedin_url") or (
+                    row.get("LinkedIn URL") or ""
+                )
+                industry = fetched.get("industry") or (row.get("Industry") or "")
+                countries = fetched.get("countries") or []
+                country = countries[0] if countries else (row.get("Country") or "")
+
+                sources: Dict[str, str] = {}
+                for field, value in {
+                    "companyName": company_name,
+                    "domain": fetched_domain,
+                    "hq": hq,
+                    "size": size,
+                    "linkedin_url": linkedin_url,
+                    "industry": industry,
+                    "country": country,
+                }.items():
+                    if value:
+                        sources[field] = "ai"
+
+                if sources:
+                    results.append(
+                        ProcessedResult(
+                            id=idx,
+                            companyName=company_name,
+                            originalData=row,
+                            domain=fetched_domain,
+                            hq=hq,
+                            size=size,
+                            linkedin_url=linkedin_url,
+                            confidence="High",
+                            matchType="AI",
+                            notes=None,
+                            country=country,
+                            industry=industry,
+                            sources=sources,
+                        )
+                    )
+                    continue
+            except DeepSeekError as exc:
+                logger.warning("DeepSeek enrichment failed: %s", exc)
+
             results.append(
                 ProcessedResult(
                     id=idx,
