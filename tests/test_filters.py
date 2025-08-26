@@ -9,9 +9,9 @@ def _seed(db):
     with db.engine.begin() as conn:
         conn.execute(text("DELETE FROM company_updated"))
         data = [
-            {"n": "Google", "d": "google.com", "s": "100000"},
-            {"n": "Startup", "d": "startup.io", "s": "8"},
-            {"n": "MidCorp", "d": "midcorp.net", "s": "300"},
+            {"n": "Google", "d": "google.com", "s": "10001+"},
+            {"n": "Startup", "d": "startup.io", "s": "1-10"},
+            {"n": "MidCorp", "d": "midcorp.net", "s": "201-500"},
         ]
         for row in data:
             conn.execute(
