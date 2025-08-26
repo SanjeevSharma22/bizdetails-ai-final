@@ -442,7 +442,7 @@ def enrich_domains(
                 )
 
                 company_name = fetched.get("name") or original_name
-                fetched_domain = fetched.get("domain") or domain
+                fetched_domain = normalize_domain(fetched.get("domain") or domain)
                 hq = fetched.get("hq") or (row.get("HQ") or "")
                 size = fetched.get("size") or (
                     row.get("Company Size") or row.get("Size") or ""
