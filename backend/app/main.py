@@ -272,6 +272,27 @@ def process_job_rows(
                         field_stats[f].enriched += 1
                         field_stats[f].ai += 1
                         ai_total += 1
+
+                # Persist new record for future use
+                record_domain = data.get("domain")
+                if record_domain:
+                    exists = (
+                        db.query(CompanyUpdated)
+                        .filter(func.lower(CompanyUpdated.domain) == record_domain.lower())
+                        .first()
+                    )
+                    if not exists:
+                        db.add(
+                            CompanyUpdated(
+                                name=data.get("companyName"),
+                                domain=record_domain,
+                                hq=data.get("hq") or None,
+                                size=data.get("size") or None,
+                                industry=data.get("industry") or None,
+                                linkedin_url=data.get("linkedin_url") or None,
+                            )
+                        )
+                        db.commit()
             except DeepSeekError as exc:
                 note = f"DeepSeek enrichment failed: {exc}"
                 logger.warning("DeepSeek enrichment failed: %s", exc)
@@ -441,6 +462,25 @@ def enrich_domains(
                 }.items():
                     if value:
                         sources[field] = "ai"
+
+                if fetched_domain:
+                    exists = (
+                        db.query(CompanyUpdated)
+                        .filter(func.lower(CompanyUpdated.domain) == fetched_domain.lower())
+                        .first()
+                    )
+                    if not exists:
+                        db.add(
+                            CompanyUpdated(
+                                name=company_name,
+                                domain=fetched_domain,
+                                hq=hq or None,
+                                size=size or None,
+                                industry=industry or None,
+                                linkedin_url=linkedin_url or None,
+                            )
+                        )
+                        db.commit()
 
                 if sources:
                     results.append(

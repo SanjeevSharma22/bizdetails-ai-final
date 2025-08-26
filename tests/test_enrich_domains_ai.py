@@ -1,6 +1,7 @@
 from test_auth import setup_app
 from test_admin_upload import _create_company_table
 import importlib
+from sqlalchemy import text
 
 
 def test_enrich_domains_uses_ai_when_not_in_db(tmp_path, monkeypatch):
@@ -32,6 +33,14 @@ def test_enrich_domains_uses_ai_when_not_in_db(tmp_path, monkeypatch):
     }]
     results = main.enrich_domains(data, db)
     db.close()
+
+    with database.engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT name, domain FROM company_updated WHERE domain=:d"),
+            {"d": "aiexample.com"},
+        ).mappings().first()
+    assert row is not None
+    assert row["name"] == "AI Corp"
 
     assert called['args']['domain'] == "aiexample.com"
     assert called['args']['name'] == "AI Example"
