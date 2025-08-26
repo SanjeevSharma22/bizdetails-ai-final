@@ -19,8 +19,6 @@ from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text, or_, and_, cast, Integer
 
-import pycountry
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -484,77 +482,6 @@ def enrich_domains(
             )
     return results
 
-# --- Preprocessing helpers (optional) ---
-INDUSTRY_TAXONOMY = {
-    "technology": "Technology",
-    "tech": "Technology",
-    "finance": "Finance",
-    "financial services": "Finance",
-    "healthcare": "Healthcare",
-}
-
-def normalize_country(country: Optional[str]) -> Optional[str]:
-    if not country:
-        return None
-    country = country.strip()
-    if len(country) == 2 and country.isalpha():
-        try:
-            return pycountry.countries.get(alpha_2=country.upper()).alpha_2
-        except AttributeError:
-            return None
-    try:
-        return pycountry.countries.search_fuzzy(country)[0].alpha_2
-    except LookupError:
-        return None
-
-def normalize_industry(industry: Optional[str]) -> Optional[str]:
-    if not industry:
-        return None
-    return INDUSTRY_TAXONOMY.get(industry.strip().lower())
-
-def normalize_subindustry(subindustry: Optional[str]) -> Optional[str]:
-    if not subindustry:
-        return None  # replace with real taxonomy when available
-    return INDUSTRY_TAXONOMY.get(subindustry.strip().lower())
-
-def preprocess_rows(rows: List[Dict[str, Optional[str]]]) -> List[Dict[str, Optional[str]]]:
-    cleaned: List[Dict[str, Optional[str]]] = []
-    seen = set()
-    for row in rows:
-        original_name = row.get("Company Name") or ""
-        if not original_name.strip():
-            raise HTTPException(status_code=400, detail="Company Name is required")
-        name = normalize_company_name(original_name)
-        country = normalize_country(row.get("Country"))
-        industry = normalize_industry(row.get("Industry"))
-        subindustry = normalize_subindustry(row.get("Subindustry"))
-        company_size = row.get("Company Size")
-        keywords = row.get("Keywords")
-
-        identifier = (
-            name.lower(),
-            country,
-            industry,
-            subindustry,
-            company_size,
-            keywords,
-        )
-        if identifier in seen:
-            continue
-        seen.add(identifier)
-
-        cleaned.append(
-            {
-                "Company Name": name,
-                "Country": country,
-                "Industry": industry,
-                "Subindustry": subindustry,
-                "Company Size": company_size,
-                "Keywords": keywords,
-            }
-        )
-    return cleaned
-
 # --- Auth Endpoints ---
 @app.post("/api/auth/signup")
 def signup(
@@ -926,14 +853,6 @@ def dashboard(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
             "last_job": last_job,
         }
     }
-
-class ChatRequest(BaseModel):
-    message: str
-
-@app.post("/api/chat")
-async def chat(req: ChatRequest):
-    return {"response": "Chat endpoint not implemented."}
-
 
 @app.post("/api/admin/company-updated/upload")
 async def admin_company_upload(
