@@ -292,7 +292,11 @@ def process_job_rows(
                                 linkedin_url=data.get("linkedin_url") or None,
                             )
                         )
-                        db.commit()
+                        try:
+                            db.commit()
+                        except Exception as exc:
+                            logger.warning("Failed to persist DeepSeek record: %s", exc)
+                            db.rollback()
             except DeepSeekError as exc:
                 note = f"DeepSeek enrichment failed: {exc}"
                 logger.warning("DeepSeek enrichment failed: %s", exc)
@@ -480,7 +484,11 @@ def enrich_domains(
                                 linkedin_url=linkedin_url or None,
                             )
                         )
-                        db.commit()
+                        try:
+                            db.commit()
+                        except Exception as exc:
+                            logger.warning("Failed to persist DeepSeek record: %s", exc)
+                            db.rollback()
 
                 if sources:
                     results.append(
