@@ -17,7 +17,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text, or_, and_, cast, Integer
+from sqlalchemy import func, text, or_, and_
 
 from dotenv import load_dotenv
 
@@ -111,7 +111,8 @@ class ProcessedResult(BaseModel):
     originalData: Dict[str, Optional[str]]
     domain: str
     hq: str
-    size: str
+    size: Optional[int]
+    employee_range: Optional[str]
     linkedin_url: str
     confidence: str
     matchType: str
@@ -150,7 +151,8 @@ class CompanyOut(BaseModel):
     name: Optional[str]
     domain: str
     hq: Optional[str]
-    size: Optional[str]
+    size: Optional[int]
+    employee_range: Optional[str]
     industry: Optional[str]
     linkedin_url: Optional[str]
 
@@ -197,6 +199,16 @@ def extract_linkedin_slug(url: str) -> str:
     return path.strip("/")
 
 
+def parse_employee_size(value: Optional[str]) -> tuple[Optional[int], Optional[str]]:
+    """Split a raw size string into either an integer or a range string."""
+    if not value:
+        return None, None
+    cleaned = value.replace(",", "").strip()
+    if cleaned.isdigit():
+        return int(cleaned), None
+    return None, cleaned or None
+
+
 def process_job_rows(
     rows: List[Dict[str, Optional[str]]], db: Session
 ) -> tuple[List[ProcessedResult], Dict[str, FieldStat], int, int]:
@@ -206,6 +218,7 @@ def process_job_rows(
         "domain",
         "hq",
         "size",
+        "employee_range",
         "linkedin_url",
         "country",
         "industry",
@@ -224,7 +237,8 @@ def process_job_rows(
             "companyName": name,
             "domain": norm_domain,
             "hq": "",
-            "size": "",
+            "size": None,
+            "employee_range": None,
             "linkedin_url": linkedin,
             "country": "",
             "industry": "",
@@ -241,7 +255,8 @@ def process_job_rows(
             data["companyName"] = company.name or name
             data["domain"] = company.domain or norm_domain
             data["hq"] = company.hq or ""
-            data["size"] = company.size or ""
+            data["size"] = company.size
+            data["employee_range"] = company.employee_range
             data["linkedin_url"] = company.linkedin_url or ""
             data["industry"] = company.industry or ""
             data["country"] = (
@@ -261,7 +276,10 @@ def process_job_rows(
                 data["companyName"] = fetched.get("name") or name
                 data["domain"] = fetched.get("domain") or norm_domain
                 data["hq"] = fetched.get("hq") or ""
-                data["size"] = fetched.get("size") or ""
+                raw_size = fetched.get("size") or ""
+                size_int, size_range = parse_employee_size(raw_size)
+                data["size"] = size_int
+                data["employee_range"] = size_range
                 data["linkedin_url"] = fetched.get("linkedin_url") or ""
                 data["industry"] = fetched.get("industry") or ""
                 countries = fetched.get("countries") or []
@@ -287,7 +305,8 @@ def process_job_rows(
                                 name=data.get("companyName"),
                                 domain=record_domain,
                                 hq=data.get("hq") or None,
-                                size=data.get("size") or None,
+                                size=data.get("size"),
+                                employee_range=data.get("employee_range"),
                                 industry=data.get("industry") or None,
                                 linkedin_url=data.get("linkedin_url") or None,
                             )
@@ -308,6 +327,7 @@ def process_job_rows(
             domain=data["domain"],
             hq=data["hq"],
             size=data["size"],
+            employee_range=data["employee_range"],
             linkedin_url=data["linkedin_url"],
             confidence="High" if sources else "Low",
             matchType="Internal" if company else ("AI" if sources else "None"),
@@ -386,9 +406,13 @@ def enrich_domains(
                         func.lower(CompanyUpdated.subindustry) == subindustry.lower()
                     )
 
-                size = (row.get("Company Size") or "").strip()
-                if size:
-                    query = query.filter(func.lower(CompanyUpdated.size) == size.lower())
+                size_str = (row.get("Company Size") or "").strip()
+                if size_str:
+                    size_int, size_range = parse_employee_size(size_str)
+                    if size_int is not None:
+                        query = query.filter(CompanyUpdated.size == size_int)
+                    elif size_range:
+                        query = query.filter(CompanyUpdated.employee_range == size_range)
 
                 keywords = (row.get("Keywords") or "").strip()
                 if keywords:
@@ -424,7 +448,8 @@ def enrich_domains(
                     originalData=row,
                     domain=company.domain or domain,
                     hq=company.hq or "",
-                    size=company.size or "",
+                    size=company.size,
+                    employee_range=company.employee_range,
                     linkedin_url=company.linkedin_url or "",
                     confidence="High",
                     matchType=match_type,
@@ -444,9 +469,10 @@ def enrich_domains(
                 company_name = fetched.get("name") or original_name
                 fetched_domain = normalize_domain(fetched.get("domain") or domain)
                 hq = fetched.get("hq") or (row.get("HQ") or "")
-                size = fetched.get("size") or (
+                raw_size = fetched.get("size") or (
                     row.get("Company Size") or row.get("Size") or ""
                 )
+                size_int, size_range = parse_employee_size(raw_size)
                 linkedin_url = fetched.get("linkedin_url") or (
                     row.get("LinkedIn URL") or ""
                 )
@@ -459,7 +485,8 @@ def enrich_domains(
                     "companyName": company_name,
                     "domain": fetched_domain,
                     "hq": hq,
-                    "size": size,
+                    "size": size_int,
+                    "employee_range": size_range,
                     "linkedin_url": linkedin_url,
                     "industry": industry,
                     "country": country,
@@ -479,7 +506,8 @@ def enrich_domains(
                                 name=company_name,
                                 domain=fetched_domain,
                                 hq=hq or None,
-                                size=size or None,
+                                size=size_int,
+                                employee_range=size_range,
                                 industry=industry or None,
                                 linkedin_url=linkedin_url or None,
                             )
@@ -498,7 +526,8 @@ def enrich_domains(
                             originalData=row,
                             domain=fetched_domain,
                             hq=hq,
-                            size=size,
+                            size=size_int,
+                            employee_range=size_range,
                             linkedin_url=linkedin_url,
                             confidence="High",
                             matchType="AI",
@@ -512,6 +541,8 @@ def enrich_domains(
             except DeepSeekError as exc:
                 logger.warning("DeepSeek enrichment failed: %s", exc)
 
+            raw_size = row.get("Company Size") or row.get("Size") or ""
+            size_int, size_range = parse_employee_size(raw_size)
             results.append(
                 ProcessedResult(
                     id=idx,
@@ -519,7 +550,8 @@ def enrich_domains(
                     originalData=row,
                     domain=domain,
                     hq=row.get("HQ") or "",
-                    size=row.get("Company Size") or row.get("Size") or "",
+                    size=size_int,
+                    employee_range=size_range,
                     linkedin_url=row.get("LinkedIn URL") or "",
                     confidence="Low",
                     matchType="None",
@@ -770,11 +802,14 @@ def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
         logger.warning("DeepSeek enrichment failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
 
+    raw_size = data.get("size")
+    size_int, size_range = parse_employee_size(raw_size)
     company = CompanyUpdated(
         name=data.get("name"),
         domain=norm_domain,
         hq=data.get("hq"),
-        size=data.get("size"),
+        size=size_int,
+        employee_range=size_range,
         industry=data.get("industry"),
         linkedin_url=data.get("linkedin_url"),
     )
@@ -825,7 +860,6 @@ def list_company_updated(
         query = query.filter(func.lower(CompanyUpdated.hq).like(f"%{hq.lower()}%"))
 
     if size_range:
-        size_col = cast(CompanyUpdated.size, Integer)
         range_map = {
             "1-10": (1, 10),
             "11-50": (11, 50),
@@ -839,25 +873,26 @@ def list_company_updated(
         filters = []
         for label in size_range:
             rng = range_map.get(label)
-            if not rng:
-                continue
-            min_v, max_v = rng
-            cond = size_col >= min_v
-            if max_v is not None:
-                cond = and_(cond, size_col <= max_v)
-            filters.append(cond)
+            conds = [CompanyUpdated.employee_range == label]
+            if rng:
+                min_v, max_v = rng
+                c = CompanyUpdated.size >= min_v
+                if max_v is not None:
+                    c = and_(c, CompanyUpdated.size <= max_v)
+                conds.append(c)
+            filters.append(or_(*conds))
         if filters:
             query = query.filter(or_(*filters))
 
     if size_min is not None:
-        query = query.filter(cast(CompanyUpdated.size, Integer) >= size_min)
+        query = query.filter(CompanyUpdated.size >= size_min)
     if size_max is not None:
-        query = query.filter(cast(CompanyUpdated.size, Integer) <= size_max)
+        query = query.filter(CompanyUpdated.size <= size_max)
 
     if sort_key not in {"name", "domain", "hq", "industry", "size"}:
         sort_key = "name"
     if sort_key == "size":
-        sort_column = cast(CompanyUpdated.size, Integer)
+        sort_column = CompanyUpdated.size
     else:
         sort_column = getattr(CompanyUpdated, sort_key)
     if sort_dir == "desc":
@@ -970,6 +1005,7 @@ async def admin_company_upload(
         "subindustry",
         "keywords_cntxt",
         "size",
+        "employee_range",
         "linkedin_url",
         "slug",
         "original_name",
@@ -1018,6 +1054,8 @@ async def admin_company_upload(
             keywords = [
                 k.strip() for k in (get("keywords_cntxt") or "").split(",") if k.strip()
             ]
+            raw_size = clean(get("size"))
+            size_int, size_range = parse_employee_size(raw_size)
             data_fields = {
                 "name": clean(get("name")),
                 "countries": countries or None,
@@ -1025,7 +1063,8 @@ async def admin_company_upload(
                 "industry": clean(get("industry")),
                 "subindustry": clean(get("subindustry")),
                 "keywords_cntxt": keywords or None,
-                "size": clean(get("size")),
+                "size": size_int,
+                "employee_range": size_range,
                 "linkedin_url": clean(linkedin_url),
                 "slug": clean(get("slug")),
                 "original_name": clean(get("original_name")),
