@@ -3,6 +3,7 @@ import csv
 import uuid
 import re
 import json
+import logging
 from io import StringIO, TextIOWrapper
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -23,6 +24,8 @@ import pycountry
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
@@ -229,6 +232,7 @@ def process_job_rows(
             "industry": "",
         }
         company = None
+        note: Optional[str] = None
         if norm_domain:
             company = (
                 db.query(CompanyUpdated)
@@ -270,8 +274,9 @@ def process_job_rows(
                         field_stats[f].enriched += 1
                         field_stats[f].ai += 1
                         ai_total += 1
-            except DeepSeekError:
-                pass
+            except DeepSeekError as exc:
+                note = f"DeepSeek enrichment failed: {exc}"
+                logger.warning("DeepSeek enrichment failed: %s", exc)
 
         result = ProcessedResult(
             id=idx,
@@ -283,7 +288,7 @@ def process_job_rows(
             linkedin_url=data["linkedin_url"],
             confidence="High" if sources else "Low",
             matchType="Internal" if company else ("AI" if sources else "None"),
-            notes=None if sources else "Not found",
+            notes=note if note is not None else (None if sources else "Not found"),
             country=data["country"],
             industry=data["industry"],
             sources=sources,
@@ -732,6 +737,7 @@ def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
     try:
         data = fetch_company_data(domain=norm_domain)
     except DeepSeekError as exc:
+        logger.warning("DeepSeek enrichment failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
 
     company = CompanyUpdated(
