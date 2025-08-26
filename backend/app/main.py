@@ -145,6 +145,27 @@ class JobData(BaseModel):
     meta: JobMeta
     results: List[ProcessedResult]
 
+# --- Employee size helpers ---
+
+def employee_range_from_size(size: Optional[int]) -> Optional[str]:
+    """Map an exact employee count to a human-readable range."""
+    if size is None:
+        return None
+    ranges = [
+        (1, 10, "1-10"),
+        (11, 50, "11-50"),
+        (51, 200, "51-200"),
+        (201, 500, "201-500"),
+        (501, 1000, "501-1,000"),
+        (1001, 5000, "1,001-5,000"),
+        (5001, 10000, "5,001-10,000"),
+        (10001, None, "10,001+"),
+    ]
+    for min_v, max_v, label in ranges:
+        if size >= min_v and (max_v is None or size <= max_v):
+            return label
+    return None
+
 # Response schema for dashboard company listings
 class CompanyOut(BaseModel):
     id: int
@@ -158,6 +179,13 @@ class CompanyOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+    @root_validator(pre=True)
+    def compute_range(cls, values):
+        data = dict(values)
+        if not data.get("employee_range") and data.get("size") is not None:
+            data["employee_range"] = employee_range_from_size(data.get("size"))
+        return data
 
 # In-memory task store (MVP)
 TASK_RESULTS: Dict[str, List[ProcessedResult]] = {}
@@ -205,7 +233,8 @@ def parse_employee_size(value: Optional[str]) -> tuple[Optional[int], Optional[s
         return None, None
     cleaned = value.replace(",", "").strip()
     if cleaned.isdigit():
-        return int(cleaned), None
+        size_int = int(cleaned)
+        return size_int, employee_range_from_size(size_int)
     return None, cleaned or None
 
 
@@ -256,7 +285,15 @@ def process_job_rows(
             data["domain"] = company.domain or norm_domain
             data["hq"] = company.hq or ""
             data["size"] = company.size
-            data["employee_range"] = company.employee_range
+            size_range = company.employee_range or employee_range_from_size(company.size)
+            data["employee_range"] = size_range
+            if company.employee_range != size_range and size_range is not None:
+                company.employee_range = size_range
+                try:
+                    db.commit()
+                except Exception as exc:
+                    logger.warning("Failed to update employee_range: %s", exc)
+                    db.rollback()
             data["linkedin_url"] = company.linkedin_url or ""
             data["industry"] = company.industry or ""
             data["country"] = (
@@ -278,6 +315,7 @@ def process_job_rows(
                 data["hq"] = fetched.get("hq") or ""
                 raw_size = fetched.get("size") or ""
                 size_int, size_range = parse_employee_size(raw_size)
+                size_range = size_range or employee_range_from_size(size_int)
                 data["size"] = size_int
                 data["employee_range"] = size_range
                 data["linkedin_url"] = fetched.get("linkedin_url") or ""
@@ -441,6 +479,14 @@ def enrich_domains(
             result_country = (
                 company.countries[0] if getattr(company, "countries", None) else ""
             )
+            size_range = company.employee_range or employee_range_from_size(company.size)
+            if company.employee_range != size_range and size_range is not None:
+                company.employee_range = size_range
+                try:
+                    db.commit()
+                except Exception as exc:
+                    logger.warning("Failed to update employee_range: %s", exc)
+                    db.rollback()
             results.append(
                 ProcessedResult(
                     id=idx,
@@ -449,7 +495,7 @@ def enrich_domains(
                     domain=company.domain or domain,
                     hq=company.hq or "",
                     size=company.size,
-                    employee_range=company.employee_range,
+                    employee_range=size_range,
                     linkedin_url=company.linkedin_url or "",
                     confidence="High",
                     matchType=match_type,
@@ -804,6 +850,7 @@ def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
 
     raw_size = data.get("size")
     size_int, size_range = parse_employee_size(raw_size)
+    size_range = size_range or employee_range_from_size(size_int)
     company = CompanyUpdated(
         name=data.get("name"),
         domain=norm_domain,
