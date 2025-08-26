@@ -51,7 +51,8 @@ def test_enrich_domains_uses_ai_when_not_in_db(tmp_path, monkeypatch):
     assert r.companyName == "AI Corp"
     assert r.domain == "aiexample.com"
     assert r.hq == "AI HQ"
-    assert r.size == "1-10"
+    assert r.size is None
+    assert r.employee_range == "1-10"
     assert r.linkedin_url == "https://linkedin.com/company/aiexample"
     assert r.country == "US"
     assert r.industry == "AI"

@@ -18,7 +18,8 @@ def _create_company_table(engine):
                     industry VARCHAR,
                     subindustry VARCHAR,
                     keywords_cntxt VARCHAR,
-                    size VARCHAR,
+                    size INTEGER,
+                    employee_range VARCHAR,
                     linkedin_url VARCHAR,
                     slug VARCHAR,
                     original_name VARCHAR,
@@ -32,7 +33,9 @@ def _create_company_table(engine):
 def _fetch_company(engine, domain):
     with engine.begin() as conn:
         row = conn.execute(
-            text("SELECT name, hq, size FROM company_updated WHERE domain=:d"),
+            text(
+                "SELECT name, hq, size, employee_range FROM company_updated WHERE domain=:d"
+            ),
             {"d": domain},
         ).mappings().first()
     return row
@@ -81,7 +84,7 @@ def test_override_mode_updates_and_preserves(tmp_path):
     row = _fetch_company(database.engine, "example.com")
     assert row["name"] == "NewCo"
     assert row["hq"] == "OldHQ"  # empty CSV should preserve existing
-    assert row["size"] == "100"
+    assert row["size"] == 100
 
 
 def test_missing_mode_only_fills_empty(tmp_path):
@@ -111,7 +114,7 @@ def test_missing_mode_only_fills_empty(tmp_path):
     row = _fetch_company(database.engine, "example.com")
     assert row["name"] == "OldCo"  # existing name preserved
     assert row["hq"] == "NewHQ"  # hq was empty -> filled
-    assert row["size"] == "50"  # existing value kept despite CSV
+    assert row["size"] == 50  # existing value kept despite CSV
 
 
 def test_upload_with_missing_optional_columns(tmp_path):

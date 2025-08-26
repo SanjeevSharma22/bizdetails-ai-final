@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect, text, Integer
 from sqlalchemy.orm import sessionmaker, declarative_base
 from passlib.context import CryptContext
 
@@ -100,6 +100,12 @@ def init_db():
                 conn.execute(
                     text(
                         "ALTER TABLE company_updated ADD COLUMN legal_name VARCHAR"
+                    )
+                )
+            if "employee_range" not in company_columns:
+                conn.execute(
+                    text(
+                        "ALTER TABLE company_updated ADD COLUMN employee_range VARCHAR"
                     )
                 )
 
