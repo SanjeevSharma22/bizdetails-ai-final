@@ -17,7 +17,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text, or_, and_, cast, Integer
+from sqlalchemy import func, text, or_, and_, cast, Integer, case
 
 from dotenv import load_dotenv
 
@@ -442,7 +442,7 @@ def enrich_domains(
                 )
 
                 company_name = fetched.get("name") or original_name
-                fetched_domain = fetched.get("domain") or domain
+                fetched_domain = normalize_domain(fetched.get("domain") or domain)
                 hq = fetched.get("hq") or (row.get("HQ") or "")
                 size = fetched.get("size") or (
                     row.get("Company Size") or row.get("Size") or ""
@@ -824,40 +824,29 @@ def list_company_updated(
     if hq:
         query = query.filter(func.lower(CompanyUpdated.hq).like(f"%{hq.lower()}%"))
 
+    numeric_size = case(
+        (
+            and_(
+                ~CompanyUpdated.size.contains("-"),
+                ~CompanyUpdated.size.contains("+"),
+            ),
+            cast(CompanyUpdated.size, Integer),
+        ),
+        else_=None,
+    )
+
     if size_range:
-        size_col = cast(CompanyUpdated.size, Integer)
-        range_map = {
-            "1-10": (1, 10),
-            "11-50": (11, 50),
-            "51-200": (51, 200),
-            "201-500": (201, 500),
-            "501-1000": (501, 1000),
-            "1001-5000": (1001, 5000),
-            "5001-10,000": (5001, 10000),
-            "10,001+": (10001, None),
-        }
-        filters = []
-        for label in size_range:
-            rng = range_map.get(label)
-            if not rng:
-                continue
-            min_v, max_v = rng
-            cond = size_col >= min_v
-            if max_v is not None:
-                cond = and_(cond, size_col <= max_v)
-            filters.append(cond)
-        if filters:
-            query = query.filter(or_(*filters))
+        query = query.filter(CompanyUpdated.size.in_(size_range))
 
     if size_min is not None:
-        query = query.filter(cast(CompanyUpdated.size, Integer) >= size_min)
+        query = query.filter(numeric_size >= size_min)
     if size_max is not None:
-        query = query.filter(cast(CompanyUpdated.size, Integer) <= size_max)
+        query = query.filter(numeric_size <= size_max)
 
     if sort_key not in {"name", "domain", "hq", "industry", "size"}:
         sort_key = "name"
     if sort_key == "size":
-        sort_column = cast(CompanyUpdated.size, Integer)
+        sort_column = numeric_size
     else:
         sort_column = getattr(CompanyUpdated, sort_key)
     if sort_dir == "desc":

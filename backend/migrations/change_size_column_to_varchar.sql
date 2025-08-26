@@ -1,0 +1,2 @@
+ALTER TABLE company_updated
+    ALTER COLUMN size TYPE VARCHAR USING size::VARCHAR;
