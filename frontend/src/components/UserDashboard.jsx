@@ -4,6 +4,7 @@ const API = import.meta.env.VITE_API_BASE || "";
 
 export function UserDashboard({ token }) {
   const [stats, setStats] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -22,6 +23,29 @@ export function UserDashboard({ token }) {
   const progress = lastJob && lastJob.total_records
     ? Math.round((lastJob.processed_records / lastJob.total_records) * 100)
     : 0;
+
+  const downloadLastFile = async () => {
+    setError("");
+    try {
+      const res = await fetch(`${API}/api/dashboard/last-file`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error("Download failed");
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = lastJob?.file_name || "enriched.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -61,6 +85,12 @@ export function UserDashboard({ token }) {
             ></div>
           </div>
           <div className="text-right text-xs">{progress}%</div>
+          {lastJob && (
+            <button onClick={downloadLastFile} className="btn btn-primary w-full">
+              Download Last Enriched File
+            </button>
+          )}
+          {error && <div className="text-xs text-red-500 text-center">{error}</div>}
         </div>
       </div>
 
