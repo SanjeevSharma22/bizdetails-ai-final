@@ -23,7 +23,9 @@ def _create_company_table(engine):
                     linkedin_url VARCHAR,
                     slug VARCHAR,
                     original_name VARCHAR,
-                    legal_name VARCHAR
+                    legal_name VARCHAR,
+                    uploaded_by INTEGER,
+                    source_file_name VARCHAR
                 )
                 """
             )
