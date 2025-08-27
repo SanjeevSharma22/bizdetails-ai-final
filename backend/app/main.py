@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi_jwt_auth import AuthJWT
 from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
@@ -239,7 +239,10 @@ def parse_employee_size(value: Optional[str]) -> tuple[Optional[int], Optional[s
 
 
 def process_job_rows(
-    rows: List[Dict[str, Optional[str]]], db: Session
+    rows: List[Dict[str, Optional[str]]],
+    db: Session,
+    user: Optional[User] = None,
+    file_name: Optional[str] = None,
 ) -> tuple[List[ProcessedResult], Dict[str, FieldStat], int, int]:
     results: List[ProcessedResult] = []
     fields = [
@@ -287,13 +290,15 @@ def process_job_rows(
             data["size"] = company.size
             size_range = company.employee_range or employee_range_from_size(company.size)
             data["employee_range"] = size_range
+            company.uploaded_by = user.id if user else None
+            company.source_file_name = file_name
             if company.employee_range != size_range and size_range is not None:
                 company.employee_range = size_range
-                try:
-                    db.commit()
-                except Exception as exc:
-                    logger.warning("Failed to update employee_range: %s", exc)
-                    db.rollback()
+            try:
+                db.commit()
+            except Exception as exc:
+                logger.warning("Failed to update company info: %s", exc)
+                db.rollback()
             data["linkedin_url"] = company.linkedin_url or ""
             data["industry"] = company.industry or ""
             data["country"] = (
@@ -347,6 +352,8 @@ def process_job_rows(
                                 employee_range=data.get("employee_range"),
                                 industry=data.get("industry") or None,
                                 linkedin_url=data.get("linkedin_url") or None,
+                                uploaded_by=user.id if user else None,
+                                source_file_name=file_name,
                             )
                         )
                         try:
@@ -380,7 +387,10 @@ def process_job_rows(
 
 # --- Enrichment ---
 def enrich_domains(
-    data: List[Dict[str, Optional[str]]], db: Session
+    data: List[Dict[str, Optional[str]]],
+    db: Session,
+    user: Optional[User] = None,
+    file_name: Optional[str] = None,
 ) -> List[ProcessedResult]:
     results: List[ProcessedResult] = []
 
@@ -480,13 +490,15 @@ def enrich_domains(
                 company.countries[0] if getattr(company, "countries", None) else ""
             )
             size_range = company.employee_range or employee_range_from_size(company.size)
+            company.uploaded_by = user.id if user else None
+            company.source_file_name = file_name
             if company.employee_range != size_range and size_range is not None:
                 company.employee_range = size_range
-                try:
-                    db.commit()
-                except Exception as exc:
-                    logger.warning("Failed to update employee_range: %s", exc)
-                    db.rollback()
+            try:
+                db.commit()
+            except Exception as exc:
+                logger.warning("Failed to update company info: %s", exc)
+                db.rollback()
             results.append(
                 ProcessedResult(
                     id=idx,
@@ -556,6 +568,8 @@ def enrich_domains(
                                 employee_range=size_range,
                                 industry=industry or None,
                                 linkedin_url=linkedin_url or None,
+                                uploaded_by=user.id if user else None,
+                                source_file_name=file_name,
                             )
                         )
                         try:
@@ -699,7 +713,7 @@ async def process(
         filtered_rows.append(row)
     rows = filtered_rows
 
-    enriched = enrich_domains(rows, db)
+    enriched = enrich_domains(rows, db, user=user, file_name=req.file_name)
     task_id = str(uuid.uuid4())
     TASK_RESULTS[task_id] = enriched
     if user:
@@ -761,8 +775,10 @@ async def create_job(
             continue
         seen.add(d)
         deduped.append(row)
+    current_user_email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == current_user_email).first()
     results, stats, internal_total, ai_total = process_job_rows(
-        deduped, db
+        deduped, db, user=user, file_name=file.filename
     )
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
@@ -779,8 +795,6 @@ async def create_job(
         file_name=file.filename,
     )
     JOB_STORE[job_id] = JobData(meta=meta, results=results)
-    current_user_email = authorize.get_jwt_subject()
-    user = db.query(User).filter(User.email == current_user_email).first()
     if user:
         user.enrichment_count += 1
         user.last_enrichment_at = datetime.now(timezone.utc)
@@ -983,6 +997,35 @@ def dashboard(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
             "last_job": last_job,
         }
     }
+
+
+@app.get("/api/dashboard/last-file")
+def download_last_file(authorize: AuthJWT = Depends(), db: Session = Depends(get_db)):
+    authorize.jwt_required()
+    email = authorize.get_jwt_subject()
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.last_file_name:
+        raise HTTPException(status_code=404, detail="No enrichment file available")
+    companies = (
+        db.query(CompanyUpdated)
+        .filter(CompanyUpdated.uploaded_by == user.id)
+        .filter(CompanyUpdated.source_file_name == user.last_file_name)
+        .all()
+    )
+    if not companies:
+        raise HTTPException(status_code=404, detail="No enrichment data found")
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(
+        ["name", "domain", "hq", "size", "employee_range", "industry", "linkedin_url"]
+    )
+    for c in companies:
+        writer.writerow(
+            [c.name, c.domain, c.hq, c.size, c.employee_range, c.industry, c.linkedin_url]
+        )
+    output.seek(0)
+    headers = {"Content-Disposition": f"attachment; filename={user.last_file_name}"}
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers=headers)
 
 @app.post("/api/admin/company-updated/upload")
 async def admin_company_upload(

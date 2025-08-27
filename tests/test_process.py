@@ -1,35 +1,11 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import text
-
+from test_admin_upload import _create_company_table
 from test_auth import setup_app
 
 
 def test_process_skips_rows_missing_identifiers(tmp_path):
     app, database, _ = setup_app(tmp_path)
-    with database.engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS company_updated (
-                    id INTEGER PRIMARY KEY,
-                    name VARCHAR,
-                    domain VARCHAR UNIQUE,
-                    countries VARCHAR,
-                    hq VARCHAR,
-                    industry VARCHAR,
-                    subindustry VARCHAR,
-                    keywords_cntxt VARCHAR,
-                    size INTEGER,
-                    employee_range VARCHAR,
-                    linkedin_url VARCHAR,
-                    slug VARCHAR,
-                    original_name VARCHAR,
-                    legal_name VARCHAR
-                )
-                """
-            )
-        )
-
+    _create_company_table(database.engine)
     client = TestClient(app)
 
     resp = client.post(
@@ -86,30 +62,7 @@ def test_process_requires_token(tmp_path):
 
 def test_process_records_file_name(tmp_path):
     app, database, models = setup_app(tmp_path)
-    with database.engine.begin() as conn:
-        conn.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS company_updated (
-                    id INTEGER PRIMARY KEY,
-                    name VARCHAR,
-                    domain VARCHAR UNIQUE,
-                    countries VARCHAR,
-                    hq VARCHAR,
-                    industry VARCHAR,
-                    subindustry VARCHAR,
-                    keywords_cntxt VARCHAR,
-                    size INTEGER,
-                    employee_range VARCHAR,
-                    linkedin_url VARCHAR,
-                    slug VARCHAR,
-                    original_name VARCHAR,
-                    legal_name VARCHAR
-                )
-                """
-            )
-        )
-
+    _create_company_table(database.engine)
     client = TestClient(app)
 
     resp = client.post(
@@ -135,4 +88,38 @@ def test_process_records_file_name(tmp_path):
     assert last_job["file_name"] == "test.csv"
     assert last_job["total_records"] == 1
     assert last_job["processed_records"] == 1
+
+
+def test_download_last_enriched_file(tmp_path):
+    app, database, models = setup_app(tmp_path)
+    _create_company_table(database.engine)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/auth/signup",
+        json={"email": "dl@example.com", "password": "secret", "fullName": "DL"},
+    )
+    assert resp.status_code == 200
+    token = resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Seed an existing company so enrichment finds a match without external API
+    db = database.SessionLocal()
+    db.add(models.CompanyUpdated(name="Example", domain="example.com"))
+    db.commit()
+    db.close()
+
+    data = [{"Domain": "example.com", "Company Name": "Example"}]
+
+    resp = client.post(
+        "/api/process",
+        json={"data": data, "file_name": "data.csv"},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+
+    resp = client.get("/api/dashboard/last-file", headers=headers)
+    assert resp.status_code == 200
+    assert "attachment; filename=data.csv" in resp.headers["content-disposition"].lower()
+    assert b"example.com" in resp.content
 
