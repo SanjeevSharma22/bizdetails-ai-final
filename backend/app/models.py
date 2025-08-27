@@ -39,3 +39,5 @@ class CompanyUpdated(Base):
     slug = Column(String)
     original_name = Column(String)
     legal_name = Column(String)
+    uploaded_by = Column(Integer, nullable=True)
+    source_file_name = Column(String, nullable=True)

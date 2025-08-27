@@ -108,6 +108,14 @@ def init_db():
                         "ALTER TABLE company_updated ADD COLUMN employee_range VARCHAR"
                     )
                 )
+            if "uploaded_by" not in company_columns:
+                conn.execute(
+                    text("ALTER TABLE company_updated ADD COLUMN uploaded_by INTEGER")
+                )
+            if "source_file_name" not in company_columns:
+                conn.execute(
+                    text("ALTER TABLE company_updated ADD COLUMN source_file_name VARCHAR")
+                )
 
     # Seed a default admin user if none exists
     from .models import User  # Import here to avoid circular dependency
