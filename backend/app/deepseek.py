@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 import httpx
 
@@ -20,8 +20,8 @@ REQUEST_TIMEOUT_SECS = float(os.getenv("DEEPSEEK_TIMEOUT_SECS", "30"))
 # Prompt instructing the model to output strictly the expected JSON shape.
 DEEPSEEK_SYSTEM_PROMPT = (
     "You are an information-retrieval and data-enrichment engine. "
-    "Given optional company name, domain, and LinkedIn URL, return a SINGLE JSON object "
-    "with these keys only and nothing else (no prose):\n\n"
+    "Given optional company name, domain, LinkedIn URL, country, industry, subindustry, size, "
+    "and keywords, return a SINGLE JSON object with these keys only and nothing else (no prose):\n\n"
     "{\n"
     '  "name": null,\n'
     '  "domain": null,\n'
@@ -45,6 +45,11 @@ DEEPSEEK_USER_TEMPLATE = (
     "name: {name}\n"
     "domain: {domain}\n"
     "linkedin_url: {linkedin_url}\n"
+    "country: {country}\n"
+    "industry: {industry}\n"
+    "subindustry: {subindustry}\n"
+    "size: {size}\n"
+    "keywords_cntxt: {keywords}\n"
 )
 
 
@@ -78,12 +83,24 @@ def _make_client() -> httpx.Client:
 
 
 def _build_payload(
-    name: Optional[str], domain: Optional[str], linkedin_url: Optional[str]
+    name: Optional[str],
+    domain: Optional[str],
+    linkedin_url: Optional[str],
+    country: Optional[str],
+    industry: Optional[str],
+    subindustry: Optional[str],
+    size: Optional[str],
+    keywords: Optional[List[str]],
 ) -> Dict[str, Any]:
     user_content = DEEPSEEK_USER_TEMPLATE.format(
         name=name or "null",
         domain=domain or "null",
         linkedin_url=linkedin_url or "null",
+        country=country or "null",
+        industry=industry or "null",
+        subindustry=subindustry or "null",
+        size=size or "null",
+        keywords=", ".join(keywords) if keywords else "null",
     )
     return {
         "model": DEEPSEEK_MODEL,
@@ -167,6 +184,11 @@ def fetch_company_data(
     name: Optional[str] = None,
     domain: Optional[str] = None,
     linkedin_url: Optional[str] = None,
+    country: Optional[str] = None,
+    industry: Optional[str] = None,
+    subindustry: Optional[str] = None,
+    size: Optional[str] = None,
+    keywords: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Fetch company data from the DeepSeek API and return a normalized dict."""
 
@@ -176,7 +198,16 @@ def fetch_company_data(
         "Content-Type": "application/json",
     }
 
-    payload = _build_payload(name, domain, linkedin_url)
+    payload = _build_payload(
+        name,
+        domain,
+        linkedin_url,
+        country,
+        industry,
+        subindustry,
+        size,
+        keywords,
+    )
 
     backoffs = (0.5, 1.0, 2.0)
     last_exc: Optional[Exception] = None

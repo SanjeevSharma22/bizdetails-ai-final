@@ -17,7 +17,7 @@ from fastapi_jwt_auth.exceptions import AuthJWTException
 from passlib.context import CryptContext
 from pydantic import BaseModel, Field, root_validator
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text, or_, and_
+from sqlalchemy import func, text, or_, and_, cast, String
 
 from dotenv import load_dotenv
 
@@ -845,19 +845,81 @@ def job_details(job_id: str):
 
 
 @app.get("/api/company", response_model=CompanyOut)
-def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
+def get_company(
+    domain: Optional[str] = None,
+    name: Optional[str] = None,
+    linkedin_url: Optional[str] = None,
+    country: Optional[str] = None,
+    industry: Optional[str] = None,
+    subindustry: Optional[str] = None,
+    size: Optional[str] = None,
+    keywords: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
     """Retrieve a company, falling back to DeepSeek API if missing."""
-    norm_domain = normalize_domain(domain)
-    company = (
-        db.query(CompanyUpdated)
-        .filter(func.lower(CompanyUpdated.domain) == norm_domain.lower())
-        .first()
-    )
+    if not any([domain, name, linkedin_url]):
+        raise HTTPException(
+            status_code=400,
+            detail="One of 'domain', 'name', or 'linkedin_url' is required",
+        )
+
+    norm_domain = normalize_domain(domain) if domain else ""
+    slug = extract_linkedin_slug(linkedin_url) if linkedin_url else ""
+    keyword_list = [k.strip() for k in (keywords or "").split(",") if k.strip()] or None
+
+    company = None
+    if slug:
+        company = (
+            db.query(CompanyUpdated)
+            .filter(func.lower(CompanyUpdated.slug) == slug.lower())
+            .first()
+        )
+    if not company and norm_domain:
+        company = (
+            db.query(CompanyUpdated)
+            .filter(func.lower(CompanyUpdated.domain) == norm_domain.lower())
+            .first()
+        )
+    if not company and name:
+        query = db.query(CompanyUpdated).filter(
+            func.lower(CompanyUpdated.name) == name.lower()
+        )
+        if country:
+            query = query.filter(
+                cast(CompanyUpdated.countries, String).ilike(f"%{country}%")
+            )
+        if industry:
+            query = query.filter(func.lower(CompanyUpdated.industry) == industry.lower())
+        if subindustry:
+            query = query.filter(
+                func.lower(CompanyUpdated.subindustry) == subindustry.lower()
+            )
+        if size:
+            try:
+                size_int = int(re.sub(r"\D", "", size))
+                query = query.filter(CompanyUpdated.size == size_int)
+            except ValueError:
+                pass
+        if keyword_list:
+            for kw in keyword_list:
+                query = query.filter(
+                    cast(CompanyUpdated.keywords_cntxt, String).ilike(f"%{kw}%")
+                )
+        company = query.first()
     if company:
         return CompanyOut.from_orm(company)
 
     try:
-        data = fetch_company_data(domain=norm_domain)
+        data = fetch_company_data(
+            name=name,
+            domain=norm_domain or None,
+            linkedin_url=linkedin_url,
+            country=country,
+            industry=industry,
+            subindustry=subindustry,
+            size=size,
+            keywords=keyword_list,
+        )
     except DeepSeekError as exc:
         logger.warning("DeepSeek enrichment failed: %s", exc)
         raise HTTPException(status_code=502, detail=str(exc))
@@ -865,14 +927,26 @@ def get_company(domain: str = Query(...), db: Session = Depends(get_db)):
     raw_size = data.get("size")
     size_int, size_range = parse_employee_size(raw_size)
     size_range = size_range or employee_range_from_size(size_int)
+    domain_val = normalize_domain(data.get("domain")) or norm_domain
+    countries_val = data.get("countries") or ([country] if country else None)
+    keywords_val = data.get("keywords_cntxt") or keyword_list
+    if db.bind.dialect.name == "sqlite":
+        countries_val = None
+        keywords_val = None
     company = CompanyUpdated(
-        name=data.get("name"),
-        domain=norm_domain,
+        name=data.get("name") or name,
+        domain=domain_val,
+        countries=countries_val,
         hq=data.get("hq"),
+        industry=data.get("industry") or industry,
+        subindustry=(data.get("subindustries") or [subindustry or None])[0],
+        keywords_cntxt=keywords_val,
         size=size_int,
         employee_range=size_range,
-        industry=data.get("industry"),
-        linkedin_url=data.get("linkedin_url"),
+        linkedin_url=data.get("linkedin_url") or linkedin_url,
+        slug=data.get("slug") or slug,
+        original_name=data.get("original_name"),
+        legal_name=data.get("legal_name"),
     )
     db.add(company)
     db.commit()
