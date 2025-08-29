@@ -238,6 +238,20 @@ def parse_employee_size(value: Optional[str]) -> tuple[Optional[int], Optional[s
     return None, cleaned or None
 
 
+def first_country(countries: Optional[Any]) -> str:
+    """Return the first country from a list or the string itself.
+
+    ``CompanyUpdated.countries`` is defined as an ARRAY for PostgreSQL but tests use
+    SQLite where the column is a plain string. Attempting to index into a string
+    returns a single character, so this helper normalizes both cases.
+    """
+    if not countries:
+        return ""
+    if isinstance(countries, list):
+        return countries[0] if countries else ""
+    return str(countries)
+
+
 def process_job_rows(
     rows: List[Dict[str, Optional[str]]],
     db: Session,
@@ -301,9 +315,7 @@ def process_job_rows(
                 db.rollback()
             data["linkedin_url"] = company.linkedin_url or ""
             data["industry"] = company.industry or ""
-            data["country"] = (
-                company.countries[0] if getattr(company, "countries", None) else ""
-            )
+            data["country"] = first_country(getattr(company, "countries", None))
             for f in fields:
                 if data.get(f):
                     sources[f] = "internal"
@@ -439,8 +451,10 @@ def enrich_domains(
 
                 country = (row.get("Country") or "").strip()
                 if country:
-                    # CompanyUpdated.countries is expected to be ARRAY of ISO alpha-2 (e.g., "IN", "US")
-                    query = query.filter(CompanyUpdated.countries.any(country.upper()))
+                    # Support both ARRAY (PostgreSQL) and plain string (SQLite) columns.
+                    query = query.filter(
+                        cast(CompanyUpdated.countries, String).ilike(f"%{country}%")
+                    )
 
                 industry = (row.get("Industry") or "").strip()
                 if industry:
@@ -486,9 +500,7 @@ def enrich_domains(
                 )
 
         if company:
-            result_country = (
-                company.countries[0] if getattr(company, "countries", None) else ""
-            )
+            result_country = first_country(getattr(company, "countries", None))
             size_range = company.employee_range or employee_range_from_size(company.size)
             company.uploaded_by = user.id if user else None
             company.source_file_name = file_name
