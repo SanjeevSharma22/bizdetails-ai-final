@@ -11,27 +11,31 @@ def test_enrich_domains_uses_ai_when_not_in_db(tmp_path, monkeypatch):
 
     called = {}
 
-    def fake_fetch(*, name=None, domain=None, linkedin_url=None):
-        called['args'] = {'name': name, 'domain': domain, 'linkedin_url': linkedin_url}
-        return {
-            "name": "AI Corp",
-            "domain": domain,
-            "hq": "AI HQ",
-            "size": "1-10",
-            "industry": "AI",
-            "linkedin_url": linkedin_url,
-            "countries": ["US"],
-        }
+    def fake_fetch_batch(companies, batch_size=20):
+        called["companies"] = companies
+        return [
+            {
+                "name": "AI Corp",
+                "domain": companies[0]["domain"],
+                "hq": "AI HQ",
+                "size": "1-10",
+                "industry": "AI",
+                "linkedin_url": companies[0]["linkedin_url"],
+                "countries": ["US"],
+            }
+        ]
 
-    monkeypatch.setattr(main, "fetch_company_data", fake_fetch)
+    monkeypatch.setattr(main, "fetch_companies_batch", fake_fetch_batch)
 
     db = database.SessionLocal()
-    data = [{
-        "Domain": "https://www.aiexample.com/",
-        "Company Name": "AI Example",
-        "LinkedIn URL": "https://linkedin.com/company/aiexample",
-    }]
-    results = main.enrich_domains(data, db)
+    data = [
+        {
+            "Domain": "https://www.aiexample.com/",
+            "Company Name": "AI Example",
+            "LinkedIn URL": "https://linkedin.com/company/aiexample",
+        }
+    ]
+    results, stats, internal_total, ai_total = main.process_job_rows(data, db)
     db.close()
 
     with database.engine.begin() as conn:
@@ -42,9 +46,12 @@ def test_enrich_domains_uses_ai_when_not_in_db(tmp_path, monkeypatch):
     assert row is not None
     assert row["name"] == "AI Corp"
 
-    assert called['args']['domain'] == "aiexample.com"
-    assert called['args']['name'] == "AI Example"
-    assert called['args']['linkedin_url'] == "https://linkedin.com/company/aiexample"
+    assert called["companies"][0]["domain"] == "aiexample.com"
+    assert called["companies"][0]["name"] == "AI Example"
+    assert (
+        called["companies"][0]["linkedin_url"]
+        == "https://linkedin.com/company/aiexample"
+    )
 
     assert len(results) == 1
     r = results[0]

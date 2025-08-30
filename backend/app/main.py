@@ -30,10 +30,12 @@ logger = logging.getLogger(__name__)
 # threshold, the API will fetch data on demand.
 MAX_COMPANY_RESULTS = 1000
 
+DEEPSEEK_BATCH_SIZE = int(os.getenv("DEEPSEEK_BATCH_SIZE", "20"))
+
 from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
 from .normalization import normalize_company_name
-from .deepseek import fetch_company_data, DeepSeekError
+from .deepseek import fetch_company_data, fetch_companies_batch, DeepSeekError
 
 # --- DB bootstrap ---
 Base.metadata.create_all(bind=engine)
@@ -262,8 +264,9 @@ def process_job_rows(
     db: Session,
     user: Optional[User] = None,
     file_name: Optional[str] = None,
+    batch_size: int = DEEPSEEK_BATCH_SIZE,
 ) -> tuple[List[ProcessedResult], Dict[str, FieldStat], int, int]:
-    results: List[ProcessedResult] = []
+    results_by_idx: Dict[int, ProcessedResult] = {}
     fields = [
         "companyName",
         "domain",
@@ -277,13 +280,13 @@ def process_job_rows(
     field_stats = {name: FieldStat() for name in fields}
     internal_total = 0
     ai_total = 0
+    pending: List[Dict[str, Any]] = []
 
     for idx, row in enumerate(rows, start=1):
         name = row.get("company_name") or row.get("Company Name") or ""
         domain = row.get("domain") or row.get("Domain") or ""
         linkedin = row.get("linkedin_url") or row.get("LinkedIn URL") or ""
         norm_domain = normalize_domain(domain)
-        sources: Dict[str, str] = {}
         data: Dict[str, Any] = {
             "companyName": name,
             "domain": norm_domain,
@@ -294,15 +297,17 @@ def process_job_rows(
             "country": "",
             "industry": "",
         }
+
         company = None
-        note: Optional[str] = None
         if norm_domain:
             company = (
                 db.query(CompanyUpdated)
                 .filter(func.lower(CompanyUpdated.domain) == norm_domain)
                 .first()
             )
+
         if company:
+            sources: Dict[str, str] = {}
             data["companyName"] = company.name or name
             data["domain"] = company.domain or norm_domain
             data["hq"] = company.hq or ""
@@ -327,63 +332,110 @@ def process_job_rows(
                     field_stats[f].enriched += 1
                     field_stats[f].internal += 1
                     internal_total += 1
+            results_by_idx[idx] = ProcessedResult(
+                id=idx,
+                companyName=data["companyName"],
+                originalData=row,
+                domain=data["domain"],
+                hq=data["hq"],
+                size=data["size"],
+                employee_range=data["employee_range"],
+                linkedin_url=data["linkedin_url"],
+                confidence="High",
+                matchType="Internal",
+                notes=None,
+                country=data["country"],
+                industry=data["industry"],
+                sources=sources,
+            )
         else:
-            try:
-                fetched = fetch_company_data(
-                    name=name or None, domain=norm_domain or None, linkedin_url=linkedin or None
+            pending.append(
+                {
+                    "idx": idx,
+                    "row": row,
+                    "name": name,
+                    "domain": norm_domain,
+                    "linkedin_url": linkedin,
+                    "data": data,
+                }
+            )
+
+    descriptors = [
+        {
+            "name": p["name"],
+            "domain": p["domain"],
+            "linkedin_url": p["linkedin_url"],
+        }
+        for p in pending
+    ]
+
+    fetched_list: List[Optional[Dict[str, Any]]] = []
+    batch_error: Optional[Exception] = None
+    if descriptors:
+        try:
+            fetched_list = fetch_companies_batch(descriptors, batch_size=batch_size)
+        except DeepSeekError as exc:
+            batch_error = exc
+            fetched_list = [None] * len(descriptors)
+
+    for pending_item, fetched in zip(pending, fetched_list):
+        data = pending_item["data"]
+        row = pending_item["row"]
+        sources: Dict[str, str] = {}
+        note: Optional[str] = None
+        if fetched is None:
+            note = (
+                f"DeepSeek enrichment failed: {batch_error}" if batch_error else "DeepSeek enrichment failed"
+            )
+        else:
+            data["companyName"] = fetched.get("name") or pending_item["name"]
+            data["domain"] = fetched.get("domain") or pending_item["domain"]
+            data["hq"] = fetched.get("hq") or ""
+            raw_size = fetched.get("size") or ""
+            size_int, size_range = parse_employee_size(raw_size)
+            size_range = size_range or employee_range_from_size(size_int)
+            data["size"] = size_int
+            data["employee_range"] = size_range
+            data["linkedin_url"] = fetched.get("linkedin_url") or ""
+            data["industry"] = fetched.get("industry") or ""
+            countries = fetched.get("countries") or []
+            data["country"] = countries[0] if countries else ""
+            for f in fields:
+                if data.get(f):
+                    sources[f] = "ai"
+                    field_stats[f].enriched += 1
+                    field_stats[f].ai += 1
+                    ai_total += 1
+
+            record_domain = data.get("domain")
+            if record_domain:
+                exists = (
+                    db.query(CompanyUpdated)
+                    .filter(func.lower(CompanyUpdated.domain) == record_domain.lower())
+                    .first()
                 )
-                data["companyName"] = fetched.get("name") or name
-                data["domain"] = fetched.get("domain") or norm_domain
-                data["hq"] = fetched.get("hq") or ""
-                raw_size = fetched.get("size") or ""
-                size_int, size_range = parse_employee_size(raw_size)
-                size_range = size_range or employee_range_from_size(size_int)
-                data["size"] = size_int
-                data["employee_range"] = size_range
-                data["linkedin_url"] = fetched.get("linkedin_url") or ""
-                data["industry"] = fetched.get("industry") or ""
-                countries = fetched.get("countries") or []
-                data["country"] = countries[0] if countries else ""
-                for f in fields:
-                    if data.get(f):
-                        sources[f] = "ai"
-                        field_stats[f].enriched += 1
-                        field_stats[f].ai += 1
-                        ai_total += 1
-
-                # Persist new record for future use
-                record_domain = data.get("domain")
-                if record_domain:
-                    exists = (
-                        db.query(CompanyUpdated)
-                        .filter(func.lower(CompanyUpdated.domain) == record_domain.lower())
-                        .first()
-                    )
-                    if not exists:
-                        db.add(
-                            CompanyUpdated(
-                                name=data.get("companyName"),
-                                domain=record_domain,
-                                hq=data.get("hq") or None,
-                                size=data.get("size"),
-                                employee_range=data.get("employee_range"),
-                                industry=data.get("industry") or None,
-                                linkedin_url=data.get("linkedin_url") or None,
-                                uploaded_by=user.id if user else None,
-                                source_file_name=file_name,
-                            )
+                if not exists:
+                    db.add(
+                        CompanyUpdated(
+                            name=data.get("companyName"),
+                            domain=record_domain,
+                            hq=data.get("hq") or None,
+                            size=data.get("size"),
+                            employee_range=data.get("employee_range"),
+                            industry=data.get("industry") or None,
+                            linkedin_url=data.get("linkedin_url") or None,
+                            uploaded_by=user.id if user else None,
+                            source_file_name=file_name,
                         )
-                        try:
-                            db.commit()
-                        except Exception as exc:
-                            logger.warning("Failed to persist DeepSeek record: %s", exc)
-                            db.rollback()
-            except DeepSeekError as exc:
-                note = f"DeepSeek enrichment failed: {exc}"
-                logger.warning("DeepSeek enrichment failed: %s", exc)
+                    )
+                    try:
+                        db.commit()
+                    except Exception as exc:
+                        logger.warning("Failed to persist DeepSeek record: %s", exc)
+                        db.rollback()
 
-        result = ProcessedResult(
-            id=idx,
+        results_by_idx[pending_item["idx"]] = ProcessedResult(
+            id=pending_item["idx"],
             companyName=data["companyName"],
             originalData=row,
             domain=data["domain"],
@@ -392,14 +444,14 @@ def process_job_rows(
             employee_range=data["employee_range"],
             linkedin_url=data["linkedin_url"],
             confidence="High" if sources else "Low",
-            matchType="Internal" if company else ("AI" if sources else "None"),
+            matchType="AI" if sources else "None",
             notes=note if note is not None else (None if sources else "Not found"),
             country=data["country"],
             industry=data["industry"],
             sources=sources,
         )
-        results.append(result)
 
+    results = [results_by_idx[i] for i in range(1, len(rows) + 1)]
     return results, field_stats, internal_total, ai_total
 
 # --- Enrichment ---

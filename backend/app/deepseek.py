@@ -236,9 +236,72 @@ def fetch_company_data(
     raise DeepSeekError(f"DeepSeek request failed after retries: {last_exc!s}")
 
 
+def fetch_companies_batch(
+    companies: List[Dict[str, Any]],
+    batch_size: int = 20,
+) -> List[Dict[str, Any]]:
+    """Fetch company data for multiple companies using DeepSeek's batch API.
+
+    The ``companies`` argument should be a list of dictionaries containing any of
+    the fields accepted by :func:`fetch_company_data` (name, domain, linkedin
+    URL, etc.).  Requests are sent in batches of ``batch_size``.  The response
+    is a list of normalized records in the same order as the input.
+    """
+
+    if not companies:
+        return []
+
+    api_key = _require_api_key()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    results: List[Dict[str, Any]] = []
+
+    with _make_client() as client:
+        for start in range(0, len(companies), batch_size):
+            chunk = companies[start : start + batch_size]
+            inputs = []
+            for comp in chunk:
+                payload = _build_payload(
+                    comp.get("name"),
+                    comp.get("domain"),
+                    comp.get("linkedin_url"),
+                    comp.get("country"),
+                    comp.get("industry"),
+                    comp.get("subindustry"),
+                    comp.get("size"),
+                    comp.get("keywords") or comp.get("keywords_cntxt"),
+                )
+                inputs.append(payload["messages"])
+
+            batch_payload = {
+                "model": DEEPSEEK_MODEL,
+                "input": inputs,
+                "response_format": {"type": "json_object"},
+                "temperature": 0.0,
+            }
+
+            resp = client.post(DEEPSEEK_PATH, json=batch_payload, headers=headers)
+            if resp.status_code >= 400:
+                raise DeepSeekHTTPError(resp.status_code, resp.text)
+
+            data = resp.json().get("data")
+            if not isinstance(data, list):
+                raise DeepSeekError("Malformed DeepSeek batch response")
+
+            for item in data:
+                parsed = _parse_response_json(item)
+                results.append(_validate_shape(parsed))
+
+    return results
+
+
 __all__ = [
     "DeepSeekError",
     "DeepSeekHTTPError",
     "fetch_company_data",
+    "fetch_companies_batch",
 ]
 
