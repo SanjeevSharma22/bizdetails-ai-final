@@ -25,6 +25,11 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Cap the number of company records returned without an explicit request
+# for deeper pagination. Once the caller requests a page beyond this
+# threshold, the API will fetch data on demand.
+MAX_COMPANY_RESULTS = 1000
+
 from .database import Base, engine, get_db, init_db
 from .models import User, CompanyUpdated
 from .normalization import normalize_company_name
@@ -1046,10 +1051,13 @@ def list_company_updated(
         sort_column = sort_column.desc()
     query = query.order_by(sort_column)
 
-    total = query.count()
-    companies = (
-        query.offset((page - 1) * page_size).limit(page_size).all()
-    )
+    offset = (page - 1) * page_size
+    if offset < MAX_COMPANY_RESULTS:
+        total = query.limit(MAX_COMPANY_RESULTS + 1).count()
+        total = min(total, MAX_COMPANY_RESULTS)
+    else:
+        total = query.count()
+    companies = query.offset(offset).limit(page_size).all()
     return {
         "companies": [CompanyOut.from_orm(c).dict() for c in companies],
         "total": total,
