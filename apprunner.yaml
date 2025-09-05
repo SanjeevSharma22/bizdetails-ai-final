@@ -1,0 +1,22 @@
+# apprunner.yaml
+version: 1.0
+runtime: python3
+
+build:
+  commands:
+    # Install deps for the backend package
+    build:
+      - pip install --upgrade pip
+      - cd backend && pip install -r requirements.txt
+
+run:
+  # Start FastAPI with gunicorn/uvicorn from the backend folder
+  command: bash -lc "cd backend && gunicorn -k uvicorn.workers.UvicornWorker app.main:app -b 0.0.0.0:8080 --workers 2 --timeout 60"
+  network:
+    port: 8080
+  # (We’ll wire these secret names in App Runner → they’ll be read from Secrets Manager)
+  secrets:
+    - name: DATABASE_URL
+      value-from: arn:aws:secretsmanager:REGION:ACCOUNT:secret:BIZDETAILS_DATABASE_URL
+    - name: DEEPSEEK_API_KEY
+      value-from: arn:aws:secretsmanager:REGION:ACCOUNT:secret:BIZDETAILS_DEEPSEEK_API_KEY
