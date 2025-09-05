@@ -52,14 +52,23 @@ def log_activity(user: User, action: str) -> None:
     user.activity_log = events
 
 # --- App ---
+# Allow your Namecheap site to call the API
+origins = ["https://bizdetails.xyz", "https://www.bizdetails.xyz"]
+
 app = FastAPI(title="BizDetails AI API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten in prod
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/healthz")
+def healthz() -> Dict[str, bool]:
+    """Simple health check endpoint."""
+    return {"ok": True}
 
 # --- Auth / Security ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
